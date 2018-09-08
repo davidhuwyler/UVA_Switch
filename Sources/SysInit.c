@@ -6,6 +6,7 @@
 #include "SpiHandler.h" // to create spi handler task, bool
 #include "PackageHandler.h"
 #include "NetworkHandler.h"
+#include "NetworkMetrics.h"
 #include "TransportHandler.h"
 #include "Blinky.h"
 #include "ThroughputPrintout.h"

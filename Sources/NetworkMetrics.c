@@ -5,8 +5,10 @@
  *      Author: dave
  */
 
-
-
+#include "Config.h"
+#include "FreeRTOS.h"
+#include "NetworkMetrics.h"
+#include "TransportHandler.h"
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -15,14 +17,14 @@
 void networkMetrics_TaskEntry(void* p)
 {
 	const TickType_t taskInterval = pdMS_TO_TICKS(config.NetworkMetricsTaskInterval);
-	tWirelessPackage package;
+//	tWirelessPackage package;
 	TickType_t xLastWakeTime = xTaskGetTickCount(); /* Initialize the lastWakeTime variable with the current time. */
 
 
 	for(;;)
 	{
 		vTaskDelayUntil( &xLastWakeTime, taskInterval ); /* Wait for the next cycle */
-
+		transportHandler_GenerateTestPacketPair();
 	}
 }
 
