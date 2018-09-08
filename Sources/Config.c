@@ -275,6 +275,9 @@ bool readConfig(void)
   	/* NETWORK_HANDLER_TASK_INTERVAL */
     config.NetworkHandlerTaskInterval = MINI_ini_getl("SoftwareConfiguration", "NETWORK_HANDLER_TASK_INTERVAL",  DEFAULT_INT, "serialSwitch_Config.ini");
 
+  	/* NETWORK_METRICS_TASK_INTERVAL */
+    config.NetworkMetricsTaskInterval = MINI_ini_getl("SoftwareConfiguration", "NETWORK_METRICS_TASK_INTERVAL",  DEFAULT_INT, "serialSwitch_Config.ini");
+
     /* TRANSPORT_HANDLER_TASK_INTERVAL */
     config.TransportHandlerTaskInterval = MINI_ini_getl("SoftwareConfiguration", "TRANSPORT_HANDLER_TASK_INTERVAL",  DEFAULT_INT, "serialSwitch_Config.ini");
 

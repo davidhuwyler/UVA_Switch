@@ -33,6 +33,7 @@ void APP_Run(void)
 	spiHandler_TaskInit(); /* 10kB when queuelength = 512, 2x4x2x(queueLength)x1B */
 	packageHandler_TaskInit(); /* 2x4x(queueLength)x56B = 3kB */
 	networkHandler_TaskInit(); /* 2x4x(queueLength)x56B = 3kB */
+	networkMetrics_TaskInit();
 	transportHandler_TaskInit();
 
   if (xTaskCreate(SysInit_TaskEntry, "Init", 4000/sizeof(StackType_t), NULL, tskIDLE_PRIORITY+2,  NULL) != pdPASS) {

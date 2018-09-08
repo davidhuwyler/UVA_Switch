@@ -53,6 +53,7 @@ static bool createAllTasks(void)
 	static StackType_t puxStackBufferSpiHandler[SPI_HANDLER_STACK_SIZE];
 	static StackType_t puxStackBufferPackageHandler[PACKAGE_HANDLER_STACK_SIZE];
 	static StackType_t puxStackBufferNetworkHandler[NETWORK_HANDLER_STACK_SIZE];
+	static StackType_t putStackBufferNetworkMetrics[NETWORK_METRICS_STACK_SIZE];
 	static StackType_t puxStackBufferTransportHandler[TRANSPORT_HANDLER_STACK_SIZE];
 	static StackType_t puxStackBufferThroughputPrintout[THROUGHPUT_PRINTOUT_STACK_SIZE];
 	static StackType_t puxStackBufferLogger[LOGGER_STACK_SIZE];
@@ -63,6 +64,7 @@ static bool createAllTasks(void)
 	static StaticTask_t pxTaskBufferSpiHandler;
 	static StaticTask_t pxTaskBufferPackageHandler;
 	static StaticTask_t pxTaskBufferNetworkHandler;
+	static StaticTask_t pxTaskBufferNetworkMetrics;
 	static StaticTask_t pxTaskBufferTransportHandler;
 	static StaticTask_t pxTaskBufferThroughputPrintout;
 	static StaticTask_t pxTaskBufferLogger;
@@ -88,6 +90,10 @@ static bool createAllTasks(void)
 
 	/* create network handler task */
 	if (xTaskCreateStatic(networkHandler_TaskEntry, "Network_Handler", NETWORK_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferNetworkHandler, &pxTaskBufferNetworkHandler) == NULL) {
+		for(;;) {}} /* error */
+
+	/* create network metrics task */
+	if (xTaskCreateStatic(networkMetrics_TaskEntry, "Network_Metrics", NETWORK_METRICS_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, putStackBufferNetworkMetrics, &pxTaskBufferNetworkMetrics) == NULL) {
 		for(;;) {}} /* error */
 
 #if 1

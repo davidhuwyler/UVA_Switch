@@ -13,6 +13,7 @@ void SysInit_TaskEntry(void* param);
 #define SPI_HANDLER_STACK_SIZE 			(2000/sizeof(StackType_t))
 #define PACKAGE_HANDLER_STACK_SIZE		(2000/sizeof(StackType_t))
 #define NETWORK_HANDLER_STACK_SIZE		(2000/sizeof(StackType_t))
+#define NETWORK_METRICS_STACK_SIZE		(2000/sizeof(StackType_t))
 #define TRANSPORT_HANDLER_STACK_SIZE	(2000/sizeof(StackType_t))
 #define THROUGHPUT_PRINTOUT_STACK_SIZE	(2000/sizeof(StackType_t))
 #define LOGGER_STACK_SIZE				(2000/sizeof(StackType_t))

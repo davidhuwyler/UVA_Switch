@@ -54,6 +54,7 @@ typedef struct Configurations {
    int SpiHandlerTaskInterval; // [ms]
    int PackageHandlerTaskInterval; // [ms]
    int NetworkHandlerTaskInterval; // [ms]
+   int NetworkMetricsTaskInterval; // [ms]
    int TransportHandlerTaskInterval; // [ms]
    int ToggleGreenLedInterval; // [ms]
    int ThroughputPrintoutTaskInterval_s; // [sec]
