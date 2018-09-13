@@ -101,6 +101,15 @@ typedef struct sWirelessPackage
 	uint8_t wlConnUsedForLastSendAttempt;
 } tWirelessPackage;
 
+/*! \struct sWirelessPackage
+*  \brief Structure holds the payload of the Test-Packets
+*/
+typedef struct sTestPackagePayload
+{
+	bool returned;						/* True if the Packed already got returend by the receiver */
+	uint16_t longestQueue;  			/* Holds value of the longes Byte-Queue of a wireless-link */
+	uint16_t sendTimestamp; 			/* Timestamp: Moment of sending the Test-Packet */
+} tTestPackagePayload;
 
 /*!
 * \fn void packageHandler_TaskEntry(void)

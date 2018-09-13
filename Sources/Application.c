@@ -15,6 +15,7 @@
 #include "SpiHandler.h"
 #include "PackageHandler.h"
 #include "NetworkHandler.h"
+#include "NetworkMetrics.h"
 #include "TransportHandler.h"
 #include "Shell.h"
 #include "Logger.h"

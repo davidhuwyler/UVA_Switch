@@ -47,13 +47,6 @@ void transportHandler_TaskEntry(void* p);
 void transportHandler_TaskInit(void);
 
 /*!
-* \fn BaseType_t transportHandler_GenerateTestPacketPair(void)
-* \brief Initializes all queues that are declared within application handler
-* \return true if successful
-*/
-bool transportHandler_GenerateTestPacketPair(void);
-
-/*!
 * \fn ByseType_t popToReadyToSendPackFromQueue(tUartNr uartNr, tWirelessPackage* pPackage)
 * \brief Pops a package from queue
 * \param uartNr: UART number where data was collected.

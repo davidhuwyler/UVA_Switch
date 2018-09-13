@@ -7,6 +7,7 @@
 
 #include "TransportHandler.h"
 #include "NetworkHandler.h"
+#include "NetworkMetrics.h"
 #include "PackageHandler.h"
 #include "SpiHandler.h"
 #include "FRTOS.h"
@@ -20,7 +21,7 @@
 /* --------------- prototypes ------------------- */
 static bool processReceivedPayload(tWirelessPackage* pPackage);
 static bool generateDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage);
-static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage);
+static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage, bool returned);
 static BaseType_t pushToGeneratedPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
 static void pushPayloadOut(tWirelessPackage* package);
 static bool pushNextStoredPackOut(tUartNr wlConn);
@@ -29,7 +30,6 @@ static void initTransportHandlerQueues(void);
 static BaseType_t peekAtReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
 static BaseType_t nofReceivedPayloadPacksInQueue(tUartNr uartNr);
 static BaseType_t popFromReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
-
 
 
 /* --------------- global variables -------------------- */
@@ -46,7 +46,7 @@ static uint32_t nofReorderingPacksStored[NUMBER_OF_UARTS];
 #if PL_HAS_PERCEPIO
 traceString appHandlerUserEvent[10];
 #endif
-static bool generateTestPacketPairs = false;
+
 
 
 /*!
@@ -66,29 +66,30 @@ void transportHandler_TaskEntry(void* p)
 	{
 		vTaskDelayUntil( &xLastWakeTime, taskInterval ); /* Wait for the next cycle */
 		/* generate data packages and put those into the package queue */
-
 		for(int deviceNr = 0; deviceNr<NUMBER_OF_UARTS; deviceNr++)
 		{
 
 			/* generate a test package pair for the network metrics if requested */
-			if(generateTestPacketPairs && generateTestDataPackage(deviceNr, &package))
+			bool request;
+			if(popFromRequestNewTestPacketPairQueue(&request)==pdTRUE) /* New Request in Queue? */
 			{
-				if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
+				if(generateTestDataPackage(deviceNr, &package,false))
 				{
-					vPortFree(package.payload);
-					package.payload = NULL;
+					if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
+					{
+						vPortFree(package.payload);
+						package.payload = NULL;
+					}
+				}
+				if(generateTestDataPackage(deviceNr, &package,false))
+				{
+					if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
+					{
+						vPortFree(package.payload);
+						package.payload = NULL;
+					}
 				}
 			}
-			if(generateTestPacketPairs && generateTestDataPackage(deviceNr, &package))
-			{
-				if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
-				{
-					vPortFree(package.payload);
-					package.payload = NULL;
-				}
-				generateTestPacketPairs = false;
-			}
-
 
 
 			/* generate packages from raw data bytes and send to correct readyToSendPacks queue */
@@ -102,10 +103,43 @@ void transportHandler_TaskEntry(void* p)
 			}
 #if 1
 			/* push payload of wireless package out on device side */
-			if(nofReceivedPayloadPacksInQueue(deviceNr) > 0)
+			while(nofReceivedPayloadPacksInQueue(deviceNr) > 0)
 			{
 				peekAtReceivedPayloadPacksQueue(deviceNr, &package);
-				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize) /* check if enough space */
+
+				/* received Package is a Test-Package */
+				if(package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE)
+				{
+					/* Copy payload out of testpackage */
+					tTestPackagePayload payload;
+					uint8_t *bytePtrPayload = (uint8_t*)&payload;
+					for(int i = 0 ; i < sizeof(tTestPackagePayload) ; i++)
+					{
+						 bytePtrPayload[i]=package.payload[i];
+					}
+
+					/* Return the Testpackage if this device is not the Sender */
+					if(payload.returned && generateTestDataPackage(deviceNr, &package, true))
+					{
+						if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
+						{
+							vPortFree(package.payload);
+							package.payload = NULL;
+						}
+					}
+					/* Test-Packet returned from receiver */
+					else
+					{
+						// TODO Send packet time and queue length to networksMetrics
+
+
+						vPortFree(package.payload);
+						package.payload = NULL;
+					}
+				}
+
+				/* received Package is a Data-Package */
+				else if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize) /* check if enough space */
 				{
 					processReceivedPayload(&package);
 					popFromReceivedPayloadPacksQueue(deviceNr, &package);
@@ -146,15 +180,6 @@ void transportHandler_TaskInit(void)
 #endif
 }
 
-/*!
-* \fn BaseType_t transportHandler_GenerateTestPacketPair(void)
-* \brief Sets the
-* \return true if successful
-*/
-bool transportHandler_GenerateTestPacketPair(void)
-{
-	generateTestPacketPairs = true;
-}
 
 /*!
 * \fn void initTransportHandlerQueues(void)
@@ -278,17 +303,16 @@ static bool generateDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage)
 /*!
 * \fn static void generateTestDataPackages(tUartNr deviceNr, tWirelessPackage* pPackage)
 * \brief Function to generate a test data package used to determine the network metrics
+* \param returned true = packet was returned.
 * \return true if a package was generated and saved in wPackage, false otherwise.
 */
-static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage)
+static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage, bool returned)
 {
-	static uint32_t tickTimeSinceFirstCharReceived[NUMBER_OF_UARTS]; /* static variables are initialized as 0 by default */
-	static bool dataWaitingToBeSent[NUMBER_OF_UARTS];
+	tTestPackagePayload payload;
 	static const uint8_t packHeaderBuf[PACKAGE_HEADER_SIZE - 1] = { PACK_START, PACK_TYPE_NETWORK_TEST_PACKAGE, 0, 0, 0, 0, 0, 0, 0, 0 };
-	char infoBuf[60];
 
-	uint16_t numberOfBytesInRxQueue = (uint16_t) numberOfBytesInRxByteQueue(MAX_14830_DEVICE_SIDE, deviceNr);
-	uint32_t timeWaitedForPackFull = xTaskGetTickCount()-tickTimeSinceFirstCharReceived[deviceNr];
+	uint16_t numberOfBytesInRxQueue = (uint16_t) numberOfBytesInRxByteQueue(MAX_14830_WIRELESS_SIDE, deviceNr);
+	uint16_t numberOfBytesInTxQueue = (uint16_t) numberOfBytesInTxByteQueue(MAX_14830_WIRELESS_SIDE, deviceNr);
 
 	if((deviceNr >= NUMBER_OF_UARTS) || (pPackage == NULL)) /* check validity of function parameters */
 	{
@@ -296,31 +320,42 @@ static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage
 	}
 
 	/* Put together package */
+
+	/* Fill Payload	 */
+	payload.returned = !returned;
+	if(!returned)
+	{
+		payload.sendTimestamp = xTaskGetTickCount();
+		payload.longestQueue = 0;
+	}
+	else
+	{
+		if(numberOfBytesInRxQueue>numberOfBytesInTxQueue)
+			payload.longestQueue = numberOfBytesInRxQueue;
+		else
+			payload.longestQueue = numberOfBytesInTxQueue;
+	}
+
 	/* put together payload by allocating memory and copy data */
-	pPackage->payloadSize = 2;	//Payload of the testpackets
-	pPackage->payload = (uint8_t*) FRTOS_pvPortMalloc(2 * sizeof(int8_t));
+	pPackage->payloadSize = sizeof(tTestPackagePayload);	//Payload of the testpackets
+	pPackage->payload = (uint8_t*) FRTOS_pvPortMalloc(sizeof(tTestPackagePayload));
 	if (pPackage->payload == NULL) /* malloc failed */
 	{
 		return false;
 	}
 
-	/* fill payload with rx queue size */
-	pPackage->payload[0] = (int8_t) (numberOfBytesInRxQueue & 0x00FF);
-	pPackage->payload[1] = (int8_t) ((numberOfBytesInRxQueue & 0xFF00) >> 8);
-	/* higest bit of payload indicates if packed was already sent back. 1 = not sent back jet */
-	pPackage->payload[1] = pPackage->payload[1] | 0x80; //Set Higest bit in payload
+	uint8_t *bytePtrPayload = (uint8_t*)&payload;
+	for(int i = 0 ; i < sizeof(tTestPackagePayload) ; i++)
+	{
+		pPackage->payload[i] = bytePtrPayload[i];
+	}
 
 	/* put together the rest of the header */
 	pPackage->packType = PACK_TYPE_NETWORK_TEST_PACKAGE;
 	pPackage->devNum = deviceNr;
 	pPackage->payloadNr = ++payloadNumTracker[deviceNr];
-	/* reset last timestamp */
-	tickTimeSinceFirstCharReceived[deviceNr] = 0;
-	/* reset flag that timestamp was updated */
-	dataWaitingToBeSent[deviceNr] = false;
-	//vTracePrint(appHandlerUserEvent[1], "exit");
-	return true;
 
+	return true;
 }
 
 
