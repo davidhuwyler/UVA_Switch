@@ -78,8 +78,17 @@ void transportHandler_TaskEntry(void* p)
 					vPortFree(package.payload);
 					package.payload = NULL;
 				}
+			}
+			if(generateTestPacketPairs && generateTestDataPackage(deviceNr, &package))
+			{
+				if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
+				{
+					vPortFree(package.payload);
+					package.payload = NULL;
+				}
 				generateTestPacketPairs = false;
 			}
+
 
 
 			/* generate packages from raw data bytes and send to correct readyToSendPacks queue */
