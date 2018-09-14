@@ -57,7 +57,19 @@ void networkMetrics_TaskInit(void)
 static BaseType_t  generateTestPacketPairRequest()
 {
 	static bool request = true;
-	return xQueueSendToBack(queueRequestNewTestPacketPair, &request, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	BaseType_t result = pdTRUE;
+
+	/* Fill Queue with requests for TestPaketPairs for every UART */
+	for( int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		BaseType_t tempResult = xQueueSendToBack(queueRequestNewTestPacketPair, &request, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY));
+		if (tempResult != pdTRUE)
+		{
+			result = tempResult;
+		}
+	}
+
+	return result;
 }
 
 /*!
