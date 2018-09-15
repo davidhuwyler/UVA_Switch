@@ -1,0 +1,81 @@
+/*
+ * PackageBuffer.h
+ * Functions to handle the PackageBuffer Structures.
+ *
+ *  Created on: Sep 15, 2018
+ *      Author: dave
+ */
+
+#ifndef HEADERS_PACKAGEBUFFER_H_
+#define HEADERS_PACKAGEBUFFER_H_
+
+#include <stdint.h>
+#include "PackageHandler.h"
+
+/*! \def PACKAGE_BUFFER_SIZE
+*  \brief BufferSize in packages
+*/
+#define PACKAGE_BUFFER_SIZE					50
+
+typedef struct sPackageBuffer
+{
+	tWirelessPackage packageArray[PACKAGE_BUFFER_SIZE];     // data buffer
+	bool indexIsEmpty[PACKAGE_BUFFER_SIZE];					//indicates if a entry in the buffer is free or occupied
+    size_t count;     										// number of packages in the buffer
+    size_t freeSpace;  										// number of free space for packages in the buffer
+    uint16_t payloadNrLastInOrder; 							//The payloadNR of the last sent Package which were correct ordered or sent anyway
+} tPackageBuffer;
+
+
+/*!
+* \fn void packageBuffer_init(tPackageBuffer* buffer)
+* \brief Initializes the buffer fields
+*/
+void packageBuffer_init(tPackageBuffer* buffer);
+
+/*!
+* \fn bool packageBuffer_free(tPackageBuffer* buffer)
+* \brief Frees all memorie in the buffer. Also frees Payloads of packages
+* \return true if successful
+*/
+bool packageBuffer_free(tPackageBuffer* buffer);
+
+/*!
+* \fn bool packageBuffer_put(tWirelessPackage* packet);
+* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \return true if successful
+*/
+bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet);
+
+/*!
+* \fn bool packageBuffer_getNextOrderedPackage(tWirelessPackage* packet);
+* \brief returns a copy of the next buffered packet in order. Needs To be freed after sending!
+* \return true if there is an ordered package left in buffer
+*/
+bool packageBuffer_getNextOrderedPackage(tPackageBuffer* buffer, tWirelessPackage* packet);
+
+/*!
+* \fn bool packageBuffer_getOldestPackage(tWirelessPackage* packet);
+* \brief  returns a copy of the oldes buffered packet (by payloadNR). Needs To be freed after sending!
+* \return true if successful
+*/
+bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* packet);
+
+
+/*!
+* \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
+* \brief  returns a copy of the requested packet. Needs To be freed after sending!
+* \return true if successful
+*/
+bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr);
+
+/*!
+* \fn bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer, uint16_t* payloadNrArray[PACKAGE_BUFFER_SIZE]);
+* \param sizeOfPayloadNrArray variable to store the size of the array
+* \param payloadNrArray Array to store the PayloadNrArray
+* \return true if successful
+*/
+bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,size_t* sizeOfPayloadNrArray ,uint16_t payloadNrArray[PACKAGE_BUFFER_SIZE]);
+
+
+#endif /* HEADERS_PACKAGEBUFFER_H_ */
