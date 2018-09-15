@@ -21,7 +21,7 @@ static tWirelessPackage nextDataPacketToSend[NUMBER_OF_UARTS]; /* data buffer of
 static char* queueNamePacksToDisassemble[] = {"queuePacksToDisassemble0", "queuePacksToDisassemble1", "queuePacksToDisassemble2", "queuePacksToDisassemble3"};
 static const char* queueNameAssembledPacks[] = {"AssembledPackages0", "AssembledPackages1", "AssembledPackages2", "AssembledPackages3"};
 uint8_t numOfInvalidRecWirelessPack[NUMBER_OF_UARTS];
-static uint32_t sentAckNumTracker[NUMBER_OF_UARTS];
+//static uint32_t sentAckNumTracker[NUMBER_OF_UARTS];
 static uint8_t sessionNr;
 
 
@@ -511,7 +511,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 							if (currentWirelessPackage[wlConn].packType == PACK_TYPE_REC_ACKNOWLEDGE)
 							{
 								/* received acknowledge - send message to queue */
-								numberOfAckReceived[wlConn]++;
+//								numberOfAckReceived[wlConn]++;
 								currentWirelessPackage[wlConn].timestampPackageReceived = xTaskGetTickCount();
 
 								if(pushToAssembledPackagesQueue(wlConn, &currentWirelessPackage[wlConn]) != pdTRUE) /* ToDo: handle failure on pushing package to receivedPackages queue , currently it is dropped if unsuccessful */
@@ -524,33 +524,35 @@ static void assembleWirelessPackages(uint8_t wlConn)
 									pushMsgToShellQueue(infoBuf);
 								}
 							}
-							else if (currentWirelessPackage[wlConn].packType == PACK_TYPE_DATA_PACKAGE)
+							else if ((currentWirelessPackage[wlConn].packType == PACK_TYPE_DATA_PACKAGE) ||
+									 (currentWirelessPackage[wlConn].packType == PACK_TYPE_NETWORK_TEST_PACKAGE))
 							{
 								/* update throughput printout */
 								numberOfPacksReceived[wlConn]++;
 								numberOfPayloadBytesExtracted[wlConn] += currentWirelessPackage[wlConn].payloadSize;
 								/* generate ACK if it is configured and send it to package queue */
-								if(config.SendAckPerWirelessConn[wlConn])
-								{
-									tWirelessPackage ackPackage;
-									if(generateAckPackage(&currentWirelessPackage[wlConn], &ackPackage) == false) /* allocates payload memory block for ackPackage, ToDo: handle malloc fault */
-									{
-										UTIL1_strcpy(infoBuf, sizeof(infoBuf), "Warning: Could not allocate payload memory for acknowledge\r\n");
-										pushMsgToShellQueue(infoBuf);
-										numberOfDroppedAcks[wlConn]++;
-									}
-									if(sendPackageToWirelessQueue(wlConn, &ackPackage) != pdTRUE) // ToDo: try sending ACK package out on wireless connection configured (just like data package, iterate through priorities) */
-									{
-										XF1_xsprintf(infoBuf, "%u: Warning: ACK for wireless number %u could not be pushed to queue\r\n", xTaskGetTickCount(), wlConn);
-										pushMsgToShellQueue(infoBuf);
-										numberOfDroppedPackages[wlConn]++;
-										FRTOS_vPortFree(ackPackage.payload); /* free memory since it wont be done on popping from queue */
-										ackPackage.payload = NULL;
-									}
-									pushPackageToLoggerQueue(&ackPackage, SENT_PACKAGE, wlConn);
-									/* memory of ackPackage is freed after package in PackageHandler task, extracted and byte wise pushed to byte queue */
-									numberOfAcksSent[wlConn]++;
-								}
+								/* New done in Transport-Handler*/
+//								if(config.SendAckPerWirelessConn[wlConn])
+//								{
+//									tWirelessPackage ackPackage;
+//									if(generateAckPackage(&currentWirelessPackage[wlConn], &ackPackage) == false) /* allocates payload memory block for ackPackage, ToDo: handle malloc fault */
+//									{
+//										UTIL1_strcpy(infoBuf, sizeof(infoBuf), "Warning: Could not allocate payload memory for acknowledge\r\n");
+//										pushMsgToShellQueue(infoBuf);
+//										numberOfDroppedAcks[wlConn]++;
+//									}
+//									if(sendPackageToWirelessQueue(wlConn, &ackPackage) != pdTRUE) // ToDo: try sending ACK package out on wireless connection configured (just like data package, iterate through priorities) */
+//									{
+//										XF1_xsprintf(infoBuf, "%u: Warning: ACK for wireless number %u could not be pushed to queue\r\n", xTaskGetTickCount(), wlConn);
+//										pushMsgToShellQueue(infoBuf);
+//										numberOfDroppedPackages[wlConn]++;
+//										FRTOS_vPortFree(ackPackage.payload); /* free memory since it wont be done on popping from queue */
+//										ackPackage.payload = NULL;
+//									}
+//									pushPackageToLoggerQueue(&ackPackage, SENT_PACKAGE, wlConn);
+//									/* memory of ackPackage is freed after package in PackageHandler task, extracted and byte wise pushed to byte queue */
+//									numberOfAcksSent[wlConn]++;
+//								}
 								/* received data package - send data to corresponding devices plus inform package generator to prepare a receive acknowledge */
 								if(pushToAssembledPackagesQueue(wlConn, &currentWirelessPackage[wlConn]) != pdTRUE) /* ToDo: handle queue full, now package is discarded */
 								{
@@ -681,26 +683,26 @@ static bool checkForPackStartReplacement(uint8_t* ptrToData, uint16_t* dataCntr,
 * \param pReceivedDataPack: Pointer to the structure that holds the wireless package that the acknowledge is generated for
 * \return true if a package was generated and saved, false otherwise.
 */
-static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPackage* pAckPack)
-{
-	/* default header = { PACK_START, PACK_TYPE_REC_ACKNOWLEDGE, 0, 0, 0, 0, 0, 0, 0, 0 } */
-	/* prepare wireless package */
-	pAckPack->packType = PACK_TYPE_REC_ACKNOWLEDGE;
-	pAckPack->devNum = pReceivedDataPack->devNum;
-	pAckPack->packNr = ++sentAckNumTracker[pReceivedDataPack->devNum];
-	pAckPack->payloadNr = 0;
-	pAckPack->payloadSize = sizeof(pAckPack->packNr);	/* as payload, the timestamp of the package to be acknowledged is saved */
-	/* get space for acknowladge payload (which consists of packNr of datapackage*/
-	pAckPack->payload = (uint8_t*) FRTOS_pvPortMalloc(pAckPack->payloadSize*sizeof(int8_t));
-	if(pAckPack->payload == NULL) /* malloc failed */
-		return false;
-	/* generate payload */
-	for (uint16_t cnt = 0; cnt < pAckPack->payloadSize; cnt++)
-	{
-		pAckPack->payload[cnt] = *((uint8_t*)(&pReceivedDataPack->packNr) + cnt);
-	}
-	return true;
-}
+//static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPackage* pAckPack)
+//{
+//	/* default header = { PACK_START, PACK_TYPE_REC_ACKNOWLEDGE, 0, 0, 0, 0, 0, 0, 0, 0 } */
+//	/* prepare wireless package */
+//	pAckPack->packType = PACK_TYPE_REC_ACKNOWLEDGE;
+//	pAckPack->devNum = pReceivedDataPack->devNum;
+//	pAckPack->packNr = ++sentAckNumTracker[pReceivedDataPack->devNum];
+//	pAckPack->payloadNr = 0;
+//	pAckPack->payloadSize = sizeof(pAckPack->packNr);	/* as payload, the timestamp of the package to be acknowledged is saved */
+//	/* get space for acknowladge payload (which consists of packNr of datapackage*/
+//	pAckPack->payload = (uint8_t*) FRTOS_pvPortMalloc(pAckPack->payloadSize*sizeof(int8_t));
+//	if(pAckPack->payload == NULL) /* malloc failed */
+//		return false;
+//	/* generate payload */
+//	for (uint16_t cnt = 0; cnt < pAckPack->payloadSize; cnt++)
+//	{
+//		pAckPack->payload[cnt] = *((uint8_t*)(&pReceivedDataPack->packNr) + cnt);
+//	}
+//	return true;
+//}
 
 
 /*!
