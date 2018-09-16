@@ -22,6 +22,7 @@
 /* --------------- prototypes ------------------- */
 static bool processReceivedPayload(tWirelessPackage* pPackage);
 static bool generateDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage);
+static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPackage* pAckPack);
 static void sendOutTestPackagePair(tUartNr deviceNr, tWirelessPackage* pPackage);
 static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage, bool returned);
 static BaseType_t pushToGeneratedPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
@@ -39,6 +40,7 @@ static xQueueHandle queueGeneratedPayloadPacks[NUMBER_OF_UARTS]; /* Outgoing dat
 static xQueueHandle queueReceivedPayloadPacks[NUMBER_OF_UARTS]; /* Outgoing data to wireless side */
 static char* queueNameReadyToSendPacks[] = {"queueGeneratedPacksFromDev0", "queueGeneratedPacksFromDev1", "queueGeneratedPacksFromDev2", "queueGeneratedPacksFromDev3"};
 static char* queueNameReceivedPayload[] = {"queueReceivedPacksFromDev0", "queueReceivedPacksFromDev1", "queueReceivedPacksFromDev2", "queueReceivedPacksFromDev3"};
+static uint16_t payloadNumTracker[NUMBER_OF_UARTS];
 static uint16_t payloadNumTracker[NUMBER_OF_UARTS];
 
 static tPackageBuffer sendBuffer[NUMBER_OF_UARTS];								/*Packets are stored which wait for the acknowledge */
@@ -64,7 +66,7 @@ traceString appHandlerUserEvent[10];
 void transportHandler_TaskEntry(void* p)
 {
 	const TickType_t taskInterval = pdMS_TO_TICKS(config.TransportHandlerTaskInterval);
-	tWirelessPackage package;
+	tWirelessPackage package,pAckPack;
 	bool request = true;
 	TickType_t xLastWakeTime = xTaskGetTickCount(); /* Initialize the lastWakeTime variable with the current time. */
 
@@ -108,11 +110,16 @@ void transportHandler_TaskEntry(void* p)
 						vPortFree(package.payload);
 						package.payload = NULL;
 					}
-
-					//Send Acknowledge!
-
 					else
 					{
+						//Send Acknowledge for the DataPack
+						generateAckPackage(&package, &pAckPack);
+						if (pushToGeneratedPacksQueue(deviceNr, &pAckPack) != pdTRUE)		//Put ack-package into Queues
+						{
+							vPortFree(pAckPack.payload);
+							package.pAckPack = NULL;
+						}
+
 						//Send out all packages from the buffer which are in order
 						while(packageBuffer_getNextOrderedPackage(&receiveBuffer[deviceNr],&package))
 						{
@@ -421,6 +428,34 @@ static bool generateDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage)
 		return false;
 	}
 	return false;
+}
+
+/*!
+* \fn static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPackage* pAckPack)
+* \brief Function to generate a receive acknowledge package, reading data from the data source.
+* \param pAckPack: Pointer to acknowledge packet to be created
+* \param pReceivedDataPack: Pointer to the structure that holds the wireless package that the acknowledge is generated for
+* \return true if a package was generated and saved, false otherwise.
+*/
+static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPackage* pAckPack)
+{
+	/* default header = { PACK_START, PACK_TYPE_REC_ACKNOWLEDGE, 0, 0, 0, 0, 0, 0, 0, 0 } */
+	/* prepare wireless package */
+	pAckPack->packType = PACK_TYPE_REC_ACKNOWLEDGE;
+	pAckPack->devNum = pReceivedDataPack->devNum;
+	pAckPack->packNr = ++sentAckNumTracker[pReceivedDataPack->devNum];
+	pAckPack->payloadNr = pReceivedDataPack->payloadNr;
+	pAckPack->payloadSize = sizeof(pAckPack->packNr);	/* as payload, the timestamp of the package to be acknowledged is saved */
+	/* get space for acknowladge payload (which consists of packNr of datapackage*/
+	pAckPack->payload = (uint8_t*) FRTOS_pvPortMalloc(pAckPack->payloadSize*sizeof(int8_t));
+	if(pAckPack->payload == NULL) /* malloc failed */
+		return false;
+	/* generate payload */
+	for (uint16_t cnt = 0; cnt < pAckPack->payloadSize; cnt++)
+	{
+		pAckPack->payload[cnt] = *((uint8_t*)(&pReceivedDataPack->packNr) + cnt);
+	}
+	return true;
 }
 
 /*!
