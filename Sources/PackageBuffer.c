@@ -11,6 +11,10 @@
 static bool getIndexOfFreeSpaceInBuffer(tPackageBuffer* buffer, uint16* index);
 static bool getIndexOfNextOrderedPackage(tPackageBuffer* buffer, uint16* index);
 static bool getIndexOfOldestPackage(tPackageBuffer* buffer, uint16* index);
+static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy);
+static bool updateTickCounter(void);
+
+static uint64_t tickCounter = 0;
 
 /*!
 * \fn void packageBuffer_init(tPackageBuffer* buffer)
@@ -24,6 +28,8 @@ void packageBuffer_init(tPackageBuffer* buffer)
 	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 	{
 		buffer->indexIsEmpty[i] = true;
+		buffer->sysTickTimestampBufferInsertion[i] = 0;
+		buffer->variable[i] = 0;
 	}
 }
 
@@ -49,22 +55,49 @@ bool packageBuffer_free(tPackageBuffer* buffer)
 */
 bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 {
+	updateTickCounter();
+	if(buffer->freeSpace > 0)
+	{
+		uint16_t indexOfFreePackage;
+		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
+		{
+			buffer->indexIsEmpty[indexOfFreePackage] = false;
+			buffer->sysTickTimestampBufferInsertion[indexOfFreePackage] = tickCounter;
+			buffer->variable[indexOfFreePackage] = 0;
+			buffer->freeSpace --;
+			buffer->count ++;
+			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
+			//vPortFree(packet->payload);
+			//packet->payload = NULL;
+			return result;
+		}
+	}
+	return false;
+}
+
+/*!
+* \fn bool packageBuffer_put(tWirelessPackage* packet);
+* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \return true if successful
+*/
+bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable)
+{
+	updateTickCounter();
 	if(buffer->freeSpace > 0)
 	{
 		uint16_t indexOfFreePackage;
 		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
 		{
 			/* Copy the Package into the buffer */
-			uint8_t *bytePtrPackageToCopy = (uint8_t*)packet;
-			uint8_t *bytePtrPackageInBuffer = (uint8_t*)&buffer->packageArray[indexOfFreePackage];
-			for(int i = 0 ; i < sizeof(tWirelessPackage) ; i++)
-			{
-				bytePtrPackageInBuffer[i] = bytePtrPackageToCopy[i];
-			}
 			buffer->indexIsEmpty[indexOfFreePackage] = false;
+			buffer->sysTickTimestampBufferInsertion[indexOfFreePackage] = tickCounter;
+			buffer->variable[indexOfFreePackage] = variable;
 			buffer->freeSpace --;
 			buffer->count ++;
-			return true;
+			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
+			//vPortFree(packet->payload);
+			//packet->payload = NULL;
+			return result;
 		}
 	}
 	return false;
@@ -78,22 +111,79 @@ bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 */
 bool packageBuffer_getNextOrderedPackage(tPackageBuffer* buffer, tWirelessPackage* packet)
 {
+	updateTickCounter();
 	if(buffer->count > 0)
 	{
 		uint16_t indexOfNextOrderedPackage;
 		if(getIndexOfNextOrderedPackage(buffer,&indexOfNextOrderedPackage))
 		{
 			/* Copy the Package out of the buffer */
-			uint8_t *bytePtrPackageToCopy = (uint8_t*)packet;
-			uint8_t *bytePtrPackageInBuffer = (uint8_t*)&buffer->packageArray[indexOfNextOrderedPackage];
-			for(int i = 0 ; i < sizeof(tWirelessPackage) ; i++)
-			{
-				bytePtrPackageToCopy[i] = bytePtrPackageInBuffer[i];
-			}
 			buffer->indexIsEmpty[indexOfNextOrderedPackage] = true;
 			buffer->freeSpace ++;
 			buffer->count --;
-			return true;
+			bool result = copyPackage(&buffer->packageArray[indexOfNextOrderedPackage],packet);
+			vPortFree(buffer->packageArray[indexOfNextOrderedPackage].payload);
+			buffer->packageArray[indexOfNextOrderedPackage].payload = NULL;
+			return result;
+		}
+	}
+	return false;
+}
+
+/*!
+* \fn bool packageBuffer_getNextPackageOlderThanTimeout(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t timeOutTicks);
+* \brief returns a copy of the next buffered packet which was longer in the buffer than timeOutTicks
+* 		  frees the package from the queue
+* \return true if there is an older package in buffer than timeOutTicks
+*/
+bool packageBuffer_getNextPackageOlderThanTimeout(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t timeOutTicks)
+{
+	updateTickCounter();
+	if(buffer->count > 0)
+	{
+		for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
+		{
+			if((!buffer->indexIsEmpty[i]) && ((tickCounter-(buffer->sysTickTimestampBufferInsertion[i])) > timeOutTicks))
+			{
+				/* Copy the Package out of the buffer */
+				buffer->indexIsEmpty[i] = true;
+				buffer->freeSpace ++;
+				buffer->count --;
+				bool result = copyPackage(&buffer->packageArray[i],packet);
+				vPortFree(buffer->packageArray[i].payload);
+				buffer->packageArray[i].payload = NULL;
+				return result;
+			}
+		}
+	}
+	return false;
+}
+
+/*!
+* \fn bool packageBuffer_getNextPackageOlderThanTimeout(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t timeOutTicks);
+* \brief returns a copy of the next buffered packet which was longer in the buffer than timeOutTicks
+* 		  frees the package from the queue
+* \return true if there is an older package in buffer than timeOutTicks
+*/
+bool packageBuffer_getNextPackageOlderThanTimeoutWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t* variable,uint16_t timeOutTicks)
+{
+	updateTickCounter();
+	if(buffer->count > 0)
+	{
+		for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
+		{
+			if((!buffer->indexIsEmpty[i]) && ((tickCounter-(buffer->sysTickTimestampBufferInsertion[i])) > timeOutTicks))
+			{
+				/* Copy the Package out of the buffer */
+				buffer->indexIsEmpty[i] = true;
+				*variable = buffer->variable[i];
+				buffer->freeSpace ++;
+				buffer->count --;
+				bool result = copyPackage(&buffer->packageArray[i],packet);
+				vPortFree(buffer->packageArray[i].payload);
+				buffer->packageArray[i].payload = NULL;
+				return result;
+			}
 		}
 	}
 	return false;
@@ -107,22 +197,20 @@ bool packageBuffer_getNextOrderedPackage(tPackageBuffer* buffer, tWirelessPackag
 */
 bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* packet)
 {
+	updateTickCounter();
 	if(buffer->count > 0)
 	{
 		uint16_t indexOfNextOldestPackage;
 		if(getIndexOfOldestPackage(buffer, &indexOfNextOldestPackage))
 		{
 			/* Copy the Package out of the buffer */
-			uint8_t *bytePtrPackageToCopy = (uint8_t*)packet;
-			uint8_t *bytePtrPackageInBuffer = (uint8_t*)&buffer->packageArray[indexOfNextOldestPackage];
-			for(int i = 0 ; i < sizeof(tWirelessPackage) ; i++)
-			{
-				bytePtrPackageToCopy[i] = bytePtrPackageInBuffer[i];
-			}
 			buffer->indexIsEmpty[indexOfNextOldestPackage] = true;
 			buffer->freeSpace ++;
 			buffer->count --;
-			return true;
+			bool result = copyPackage(&buffer->packageArray[indexOfNextOldestPackage],packet);
+			vPortFree(buffer->packageArray[indexOfNextOldestPackage].payload);
+			buffer->packageArray[indexOfNextOldestPackage].payload = NULL;
+			return result;
 		}
 	}
 	return false;
@@ -131,10 +219,13 @@ bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* pa
 /*!
 * \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
 * \brief  returns a copy of the requested packet. Needs To be freed after sending!
+* 		  frees the package from the queue
+* 		  If there multiple Packages with the same PayloadNR, all of them are deleted (redundant packages)
 * \return true if successful
 */
 bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
 {
+	updateTickCounter();
 	if(buffer->count > 0)
 	{
 		for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
@@ -142,21 +233,19 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 			if(buffer->packageArray[i].payloadNr == payloadNr)
 			{
 				/* Copy the Package out of the buffer */
-				uint8_t *bytePtrPackageToCopy = (uint8_t*)packet;
-				uint8_t *bytePtrPackageInBuffer = (uint8_t*)&buffer->packageArray[i];
-				for(int i = 0 ; i < sizeof(tWirelessPackage) ; i++)
-				{
-					bytePtrPackageToCopy[i] = bytePtrPackageInBuffer[i];
-				}
 				buffer->indexIsEmpty[i] = true;
 				buffer->freeSpace ++;
 				buffer->count --;
-				return true;
+				bool result = copyPackage(&buffer->packageArray[i],packet);
+				vPortFree(buffer->packageArray[i].payload);
+				buffer->packageArray[i].payload = NULL;
+				return result;
 			}
 		}
 	}
 	return false;
 }
+
 
 /*!
 * \fn bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer, uint16_t* payloadNrArray[PACKAGE_BUFFER_SIZE]);
@@ -166,6 +255,7 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 */
 bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,size_t* sizeOfPayloadNrArray ,uint16_t payloadNrArray[PACKAGE_BUFFER_SIZE])
 {
+	updateTickCounter();
 	if(buffer->count > 0)
 	{
 		sizeOfPayloadNrArray = 0;
@@ -246,4 +336,40 @@ static bool getIndexOfOldestPackage(tPackageBuffer* buffer, uint16* index)
 		}
 	}
 	return false;
+}
+
+/*!
+* \fn static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy)
+* \brief Copies the content of the original package into the copy, allocates memory for payload of copy
+* \return bool: true if successful, false otherwise
+*/
+static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy)
+{
+	*copy = *original;
+	copy->payload = FRTOS_pvPortMalloc(original->payloadSize*sizeof(int8_t));
+	if(copy->payload == NULL)
+	{
+		return false;
+	}
+	for(int cnt = 0; cnt < copy->payloadSize; cnt++)
+	{
+		copy->payload[cnt] = original->payload[cnt];
+	}
+	return true;
+}
+
+static bool updateTickCounter(void)
+{
+	static uint16_t lastOsTick = 0, newOsTick;
+	newOsTick = xTaskGetTickCount();
+
+	if(newOsTick >= lastOsTick)
+		tickCounter += (newOsTick-lastOsTick);
+	else
+	{
+		tickCounter += (0xFFFF-lastOsTick);
+		tickCounter += newOsTick;
+	}
+
+	lastOsTick = newOsTick;
 }
