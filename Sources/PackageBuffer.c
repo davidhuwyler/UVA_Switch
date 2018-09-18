@@ -67,8 +67,6 @@ bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 			buffer->freeSpace --;
 			buffer->count ++;
 			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
-			//vPortFree(packet->payload);
-			//packet->payload = NULL;
 			return result;
 		}
 	}
@@ -95,8 +93,6 @@ bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,u
 			buffer->freeSpace --;
 			buffer->count ++;
 			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
-			//vPortFree(packet->payload);
-			//packet->payload = NULL;
 			return result;
 		}
 	}

@@ -41,7 +41,7 @@ static xQueueHandle queueReceivedPayloadPacks[NUMBER_OF_UARTS]; /* Outgoing data
 static char* queueNameReadyToSendPacks[] = {"queueGeneratedPacksFromDev0", "queueGeneratedPacksFromDev1", "queueGeneratedPacksFromDev2", "queueGeneratedPacksFromDev3"};
 static char* queueNameReceivedPayload[] = {"queueReceivedPacksFromDev0", "queueReceivedPacksFromDev1", "queueReceivedPacksFromDev2", "queueReceivedPacksFromDev3"};
 static uint16_t payloadNumTracker[NUMBER_OF_UARTS];
-static uint16_t payloadNumTracker[NUMBER_OF_UARTS];
+static uint16_t sentAckNumTracker[NUMBER_OF_UARTS];
 
 static tPackageBuffer sendBuffer[NUMBER_OF_UARTS];								/*Packets are stored which wait for the acknowledge */
 static tPackageBuffer receiveBuffer[NUMBER_OF_UARTS];							/*Packets are stored which wait for reordering */
@@ -87,8 +87,21 @@ void transportHandler_TaskEntry(void* p)
 			/*------------------ Generate Packages From Ray Data (Device Bytes)---------------------*/
 			if (generateDataPackage(deviceNr, &package))
 			{
-				if ((packageBuffer_put(&sendBuffer[deviceNr],&package) != true) ||	//Put data-package into sendBuffer until Acknowledge gets received
-					(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)) 		//Put data-package into Queues
+				if (packageBuffer_put(&sendBuffer[deviceNr],&package) != true)//Put data-package into sendBuffer until Acknowledge gets received
+				{
+					packageBuffer_getOldestPackage(&sendBuffer[deviceNr],&package); //If buffer full, delete oldest Package
+					vPortFree(package.payload);
+					package.payload = NULL;
+
+					if ((packageBuffer_put(&sendBuffer[deviceNr],&package) != true) ||	//Try again to put data-package into sendBuffer
+						(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)) 		//Put data-package into Queues
+					{
+						packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr);
+						vPortFree(package.payload);
+						package.payload = NULL;
+					}
+				}
+				else if (pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE) 		//Put data-package into Queues
 				{
 					packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr);
 					vPortFree(package.payload);
@@ -117,7 +130,7 @@ void transportHandler_TaskEntry(void* p)
 						if (pushToGeneratedPacksQueue(deviceNr, &pAckPack) != pdTRUE)		//Put ack-package into Queues
 						{
 							vPortFree(pAckPack.payload);
-							package.pAckPack = NULL;
+							pAckPack.payload = NULL;
 						}
 
 						//Send out all packages from the buffer which are in order
