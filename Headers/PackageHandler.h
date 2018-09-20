@@ -14,12 +14,12 @@
 /*! \def QUEUE_NUM_OF_WL_PACK_RECEIVED
 *  \brief Number of wireless packages that should have find space within a single queue.
 */
-#define QUEUE_NUM_OF_WL_PACK_TO_ASSEMBLE			10 /* about 550 bytes per wireless package, not including the dynamically allocated memory for payload */
+#define QUEUE_NUM_OF_WL_PACK_TO_ASSEMBLE			25
 
 /*! \def QUEUE_NUM_OF_WL_PACK_TO_DISASSEMBLE
 *  \brief Number of wireless packages that should have find space within a single queue.
 */
-#define QUEUE_NUM_OF_WL_PACK_TO_DISASSEMBLE			20 /* about 550 bytes per wireless package, not including the dynamically allocated memory for payload */
+#define QUEUE_NUM_OF_WL_PACK_TO_DISASSEMBLE			25
 
 
 /*! \def PACK_START
@@ -92,13 +92,13 @@ typedef struct sWirelessPackage
 	uint8_t* payload;
 	uint16_t crc16payload;
 	/* internal information, needed for (re)sending package */
-	uint8_t currentPrioConnection;
-	int8_t sendAttemptsLeftPerWirelessConnection[NUMBER_OF_UARTS];
-	uint16_t timestampFirstSendAttempt;
-	uint16_t timestampLastSendAttempt[NUMBER_OF_UARTS];	/* holds the timestamp when the packet was sent the last time for every wireless connection */
-	uint16_t totalNumberOfSendAttemptsPerWirelessConnection[NUMBER_OF_UARTS];		/* to save the total number of send attempts that were needed for this package */
-	uint16_t timestampPackageReceived;
-	uint8_t wlConnUsedForLastSendAttempt;
+//	uint8_t currentPrioConnection;
+//	int8_t sendAttemptsLeftPerWirelessConnection[NUMBER_OF_UARTS];
+//	uint16_t timestampFirstSendAttempt;
+//	uint16_t timestampLastSendAttempt[NUMBER_OF_UARTS];	/* holds the timestamp when the packet was sent the last time for every wireless connection */
+//	uint16_t totalNumberOfSendAttemptsPerWirelessConnection[NUMBER_OF_UARTS];		/* to save the total number of send attempts that were needed for this package */
+//	uint16_t timestampPackageReceived;
+//	uint8_t wlConnUsedForLastSendAttempt;
 } tWirelessPackage;
 
 /*! \struct sWirelessPackage

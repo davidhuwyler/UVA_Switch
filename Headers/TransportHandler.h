@@ -21,12 +21,12 @@
 /*! \def QUEUE_NUM_OF_READY_TO_SEND_WL_PACKS
 *  \brief Number of wireless packages that should have find space within a single queue.
 */
-#define QUEUE_NUM_OF_READY_TO_SEND_WL_PACKS			20
+#define QUEUE_NUM_OF_READY_TO_SEND_WL_PACKS			25
 
 /*! \def QUEUE_NUM_OF_RECEIVED_WL_PACKS
 *  \brief Number of wireless packages that should have find space within a single queue.
 */
-#define QUEUE_NUM_OF_RECEIVED_PAYLOAD_PACKS			20
+#define QUEUE_NUM_OF_RECEIVED_PAYLOAD_PACKS			25
 
 /*! \def TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER
 *  \brief Timeout to wait [ticks] for the arrival of packages for reordering before packages get pushed out out of order

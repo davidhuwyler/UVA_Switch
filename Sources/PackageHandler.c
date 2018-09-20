@@ -512,7 +512,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 							{
 								/* received acknowledge - send message to queue */
 //								numberOfAckReceived[wlConn]++;
-								currentWirelessPackage[wlConn].timestampPackageReceived = xTaskGetTickCount();
+//								currentWirelessPackage[wlConn].timestampPackageReceived = xTaskGetTickCount();
 
 								if(pushToAssembledPackagesQueue(wlConn, &currentWirelessPackage[wlConn]) != pdTRUE) /* ToDo: handle failure on pushing package to receivedPackages queue , currently it is dropped if unsuccessful */
 								{

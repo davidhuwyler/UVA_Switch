@@ -89,23 +89,36 @@ void transportHandler_TaskEntry(void* p)
 			{
 				if (packageBuffer_put(&sendBuffer[deviceNr],&package) != true)//Put data-package into sendBuffer until Acknowledge gets received
 				{
-					packageBuffer_getOldestPackage(&sendBuffer[deviceNr],&package); //If buffer full, delete oldest Package
-					vPortFree(package.payload);
-					package.payload = NULL;
+					tWirelessPackage oldestPackage;
+					packageBuffer_getOldestPackage(&sendBuffer[deviceNr],&oldestPackage); //If buffer full, delete oldest Package
+					vPortFree(oldestPackage.payload);
+					oldestPackage.payload = NULL;
 
-					if ((packageBuffer_put(&sendBuffer[deviceNr],&package) != true) ||	//Try again to put data-package into sendBuffer
-						(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)) 		//Put data-package into Queues
+					if(packageBuffer_put(&sendBuffer[deviceNr],&package) != true) //Try again to put pack into sendbuffer
 					{
-						packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr);
 						vPortFree(package.payload);
 						package.payload = NULL;
+					}
+					else if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE) //Put data-package into Queues
+					{
+						vPortFree(package.payload);
+						package.payload = NULL;
+						if(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr))
+						{
+							vPortFree(package.payload);
+							package.payload = NULL;
+						}
 					}
 				}
 				else if (pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE) 		//Put data-package into Queues
 				{
-					packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr);
 					vPortFree(package.payload);
 					package.payload = NULL;
+					if(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr))
+					{
+						vPortFree(package.payload);
+						package.payload = NULL;
+					}
 				}
 			}
 
@@ -210,6 +223,8 @@ void transportHandler_TaskEntry(void* p)
 					packageBuffer_putWithVar(&sendBuffer[deviceNr],&package,(numberOfResendAttempts+1)); //Reinsert Package in the Buffer with new Timestamp
 					if (pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)		//Put data-package into Queues
 					{
+						vPortFree(package.payload);
+						package.payload = NULL;
 						packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr);
 						vPortFree(package.payload);
 						package.payload = NULL;
@@ -236,6 +251,18 @@ void transportHandler_TaskEntry(void* p)
 					packageBuffer_put(&receiveBuffer[deviceNr],&package);
 				}
 			}
+
+//			if(*package.payload)
+//			{
+//				vPortFree(package.payload);
+//				package.payload = NULL;
+//			}
+//			if(pAckPack.payload)
+//			{
+//				vPortFree(pAckPack.payload);
+//				pAckPack.payload = NULL;
+//			}
+
 
 
 //#if 1
@@ -296,6 +323,7 @@ void transportHandler_TaskEntry(void* p)
 
 //#endif
 		}
+
 	}
 }
 

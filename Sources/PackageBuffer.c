@@ -318,15 +318,17 @@ static bool getIndexOfOldestPackage(tPackageBuffer* buffer, uint16* index)
 {
 	if(buffer->count > 0)
 	{
-		uint16_t oldestPayloadNR = 0xFFFF;
+		uint16_t oldestPayloadNR = 0;
 		for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 		{
-			if(buffer->packageArray[i].payloadNr < oldestPayloadNR)
+			if((oldestPayloadNR == 0) ||
+			   (buffer->packageArray[i].payloadNr < oldestPayloadNR))
 			{
+				oldestPayloadNR = buffer->packageArray[i].payloadNr;
 				*index = i;
 			}
 		}
-		if(oldestPayloadNR<0xFFFF)
+		if(oldestPayloadNR>0)
 		{
 			return true;
 		}

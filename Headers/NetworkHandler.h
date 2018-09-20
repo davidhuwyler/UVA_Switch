@@ -10,7 +10,7 @@
 /*! \def MAX_NUMBER_OF_UNACK_PACKS_STORED
 *  \brief Size of internal array for unacknowledged packages.
 */
-#define MAX_NUMBER_OF_UNACK_PACKS_STORED		(25)
+//#define MAX_NUMBER_OF_UNACK_PACKS_STORED		(25)
 
 /*! \def MAX_DELAY_NETW_HANDLER_MS
 *  \brief Maximal delay on queue operations inside networkHandler task.
@@ -20,7 +20,7 @@
 /*! \def REORDERING_PACKAGES_BUFFER_SIZE
 *  \brief Size of ringbuffer for reordering received packages
 */
-#define REORDERING_PACKAGES_BUFFER_SIZE				(10)
+//#define REORDERING_PACKAGES_BUFFER_SIZE				(10)
 
 /*!
 * \fn void networkHandler_TaskEntry(void)
