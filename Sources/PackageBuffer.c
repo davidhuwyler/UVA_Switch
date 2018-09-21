@@ -12,7 +12,9 @@ static bool getIndexOfFreeSpaceInBuffer(tPackageBuffer* buffer, uint16* index);
 static bool getIndexOfNextOrderedPackage(tPackageBuffer* buffer, uint16* index);
 static bool getIndexOfOldestPackage(tPackageBuffer* buffer, uint16* index);
 static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy);
+static bool checkIfPackageInBuffer(tPackageBuffer* buffer, uint16 payloadNr);
 static bool updateTickCounter(void);
+
 
 static uint64_t tickCounter = 0;
 
@@ -56,7 +58,7 @@ bool packageBuffer_free(tPackageBuffer* buffer)
 bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 {
 	updateTickCounter();
-	if(buffer->freeSpace > 0)
+	if(buffer->freeSpace > 0 && !checkIfPackageInBuffer(buffer,packet->payloadNr))
 	{
 		uint16_t indexOfFreePackage;
 		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
@@ -81,7 +83,7 @@ bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable)
 {
 	updateTickCounter();
-	if(buffer->freeSpace > 0)
+	if(buffer->freeSpace > 0  && !checkIfPackageInBuffer(buffer,packet->payloadNr))
 	{
 		uint16_t indexOfFreePackage;
 		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
@@ -268,6 +270,16 @@ bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,siz
 	return false;
 }
 
+/*!
+* \fn packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr);
+* \brief sets the payloadNr Counter to the specified payloadNr
+*/
+void packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr)
+{
+	buffer->payloadNrLastInOrder = payloadNr;
+}
+
+
 
 /*!
 * \fn static bool getIndexOfFreeSpaceInBuffer(tPackageBuffer* buffer, uint16* index)
@@ -370,4 +382,20 @@ static bool updateTickCounter(void)
 	}
 
 	lastOsTick = newOsTick;
+}
+
+/*!
+* \fn static bool checkIfPackageInBuffer(tPackageBuffer* buffer, uint16* payloadNr)
+* \return bool: true if package is already in buffer, false otherwise
+*/
+static bool checkIfPackageInBuffer(tPackageBuffer* buffer, uint16 payloadNr)
+{
+	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
+	{
+		if(!buffer->indexIsEmpty && buffer->packageArray[i].payloadNr == payloadNr)
+		{
+			return true;
+		}
+	}
+	return false;
 }

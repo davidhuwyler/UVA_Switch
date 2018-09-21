@@ -107,4 +107,10 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 */
 bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,size_t* sizeOfPayloadNrArray ,uint16_t payloadNrArray[PACKAGE_BUFFER_SIZE]);
 
+/*!
+* \fn packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr);
+* \brief sets the payloadNr Counter to the specified payloadNr
+*/
+void packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr);
+
 #endif /* HEADERS_PACKAGEBUFFER_H_ */

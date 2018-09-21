@@ -84,7 +84,7 @@ void transportHandler_TaskEntry(void* p)
 				sendOutTestPackagePair(deviceNr, &package);
 			}
 
-			/*------------------ Generate Packages From Ray Data (Device Bytes)---------------------*/
+			/*------------------ Generate Packages From Raw Data (Device Bytes)---------------------*/
 			if (generateDataPackage(deviceNr, &package))
 			{
 				if (packageBuffer_put(&sendBuffer[deviceNr],&package) != true)//Put data-package into sendBuffer until Acknowledge gets received
@@ -132,9 +132,14 @@ void transportHandler_TaskEntry(void* p)
 				{
 					if(packageBuffer_put(&receiveBuffer[deviceNr],&package) != true)			//Put data-package into receiveBuffer
 					{
-						packageBuffer_getPackage(&receiveBuffer[deviceNr],&package,package.payloadNr);
-						vPortFree(package.payload);
-						package.payload = NULL;
+						//vPortFree(package.payload);
+						//package.payload = NULL;
+						if(packageBuffer_getPackage(&receiveBuffer[deviceNr],&package,package.payloadNr))
+						{
+							vPortFree(package.payload);
+							package.payload = NULL;
+						}
+						break;
 					}
 					else
 					{
@@ -146,38 +151,28 @@ void transportHandler_TaskEntry(void* p)
 							pAckPack.payload = NULL;
 						}
 
-						//Send out all packages from the buffer which are in order
-						while(packageBuffer_getNextOrderedPackage(&receiveBuffer[deviceNr],&package))
-						{
-							if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
-							{
-								popFromReceivedPayloadPacksQueue(deviceNr,&package);
-								vPortFree(package.payload);
-								package.payload = NULL;
-							}
-							else
-							{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
-								packageBuffer_put(&receiveBuffer[deviceNr],&package);
-							}
-						}
+						popFromReceivedPayloadPacksQueue(deviceNr, &package);
+						vPortFree(package.payload);
+						package.payload = NULL;
 					}
 				}
 
 			/*--------------> Incoming Package == Acknowledge <-----------------*/
 				else if(package.packType == PACK_TYPE_REC_ACKNOWLEDGE)
 				{
-					uint16_t ackPayloadNr = package.payload[0];
-					ackPayloadNr = ackPayloadNr | ((package.payload[1])<<8);
-
 					//Delete Acknowledged package from all sendBuffer
 					for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 					{
-						if(packageBuffer_getPackage(&sendBuffer[i],&package,ackPayloadNr))
+						if(packageBuffer_getPackage(&sendBuffer[i],&package,package.payloadNr))
 						{
 							vPortFree(package.payload);
 							package.payload = NULL;
 						}
 					}
+
+					popFromReceivedPayloadPacksQueue(deviceNr, &package);
+					vPortFree(package.payload);
+					package.payload = NULL;
 
 				}
 
@@ -194,19 +189,22 @@ void transportHandler_TaskEntry(void* p)
 					}
 
 					/* Return the Testpackage if this device is not the Sender */
-					if (payload.returned && generateTestDataPackage(deviceNr, &package,	true))
+					if (!payload.returned && generateTestDataPackage(deviceNr, &package,	true))
 					{
 						if (pushToGeneratedPacksQueue(deviceNr,	&package) != pdTRUE)
 						{
 							vPortFree(package.payload);
 							package.payload = NULL;
 						}
+						popFromReceivedPayloadPacksQueue(deviceNr, &package);
+						vPortFree(package.payload);
+						package.payload = NULL;
 					}
 					/* Test-Packet returned from receiver */
-					else
+					else if(payload.returned)
 					{
 						// TODO Send packet time and queue length to networksMetrics
-
+						popFromReceivedPayloadPacksQueue(deviceNr, &package);
 						vPortFree(package.payload);
 						package.payload = NULL;
 					}
@@ -237,11 +235,14 @@ void transportHandler_TaskEntry(void* p)
 				}
 			}
 
-			/*------------------------ Push Out received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
-			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER))
+
+
+			/*------------------------ Send out all packages from the buffer which are in order ---------------------------*/
+			while(packageBuffer_getNextOrderedPackage(&receiveBuffer[deviceNr],&package))
 			{
 				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
 				{
+					pushPayloadOut(&package);
 					popFromReceivedPayloadPacksQueue(deviceNr,&package);
 					vPortFree(package.payload);
 					package.payload = NULL;
@@ -249,21 +250,30 @@ void transportHandler_TaskEntry(void* p)
 				else
 				{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
 					packageBuffer_put(&receiveBuffer[deviceNr],&package);
+					vPortFree(package.payload);
+					package.payload = NULL;
+					break;
 				}
 			}
-
-//			if(*package.payload)
-//			{
-//				vPortFree(package.payload);
-//				package.payload = NULL;
-//			}
-//			if(pAckPack.payload)
-//			{
-//				vPortFree(pAckPack.payload);
-//				pAckPack.payload = NULL;
-//			}
-
-
+			/*------------------------ Push Out received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
+			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER))
+			{
+				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
+				{
+					pushPayloadOut(&package);
+					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], package.payloadNr);
+					popFromReceivedPayloadPacksQueue(deviceNr,&package);
+					vPortFree(package.payload);
+					package.payload = NULL;
+				}
+				else
+				{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
+					packageBuffer_put(&receiveBuffer[deviceNr],&package);
+					vPortFree(package.payload);
+					package.payload = NULL;
+					break;
+				}
+			}
 
 //#if 1
 //			/* push payload of wireless package out on device side */
@@ -320,7 +330,6 @@ void transportHandler_TaskEntry(void* p)
 //					while(pushNextStoredPackOut(deviceNr)); /* push next packages out that are in order */
 //				}
 //			}
-
 //#endif
 		}
 
@@ -546,7 +555,7 @@ static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage
 	/* Put together package */
 
 	/* Fill Payload	 */
-	payload.returned = !returned;
+	payload.returned = returned;
 	if(!returned)
 	{
 		payload.sendTimestamp = xTaskGetTickCount();
