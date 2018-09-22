@@ -256,12 +256,15 @@ void transportHandler_TaskEntry(void* p)
 				}
 			}
 			/*------------------------ Push Out received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
+			uint16_t mostCurrentPayloadNr = 0;
 			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER))
 			{
 				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
 				{
 					pushPayloadOut(&package);
-					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], package.payloadNr);
+					if(mostCurrentPayloadNr < package.payloadNr)
+						mostCurrentPayloadNr = package.payloadNr;
+					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr);
 					popFromReceivedPayloadPacksQueue(deviceNr,&package);
 					vPortFree(package.payload);
 					package.payload = NULL;

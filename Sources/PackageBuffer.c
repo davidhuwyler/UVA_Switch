@@ -228,7 +228,7 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 	{
 		for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 		{
-			if(buffer->packageArray[i].payloadNr == payloadNr)
+			if(!buffer->indexIsEmpty[i] && buffer->packageArray[i].payloadNr == payloadNr)
 			{
 				/* Copy the Package out of the buffer */
 				buffer->indexIsEmpty[i] = true;
@@ -310,7 +310,7 @@ static bool getIndexOfNextOrderedPackage(tPackageBuffer* buffer, uint16* index)
 {
 	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 	{
-		if(buffer->packageArray[i].payloadNr == (buffer->payloadNrLastInOrder)+1)
+		if(!buffer->indexIsEmpty[i] && buffer->packageArray[i].payloadNr == (buffer->payloadNrLastInOrder)+1)
 		{
 			buffer->payloadNrLastInOrder++;
 			*index = i;
