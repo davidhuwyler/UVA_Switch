@@ -31,17 +31,17 @@
 /*! \def TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER
 *  \brief Timeout to wait [ticks] for the arrival of packages for reordering before packages get pushed out out of order
 */
-#define TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER		1000
+#define TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER		2000
 
 /*! \def TIME_BETWEEN_RESEND_ATTEMPTS
 *  \brief Timeout to wait [ticks] for an package acknowledge before a resend attempt happens
 */
-#define TIME_BETWEEN_RESEND_ATTEMPTS				100
+#define TIME_BETWEEN_RESEND_ATTEMPTS				300
 
 /*! \def TIME_BETWEEN_RESEND_ATTEMPTS
 *  \brief Timeout to stop resending attempts [ticks] for an package before it gets dumped
 */
-#define MAX_NOF_RESEND_ATTEMPTS						10
+#define MAX_NOF_RESEND_ATTEMPTS						6
 
 /*!
 * \fn void networkHandler_TaskEntry(void)

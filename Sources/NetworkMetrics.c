@@ -37,7 +37,7 @@ void networkMetrics_TaskEntry(void* p)
 	for(;;)
 	{
 		vTaskDelayUntil( &xLastWakeTime, taskInterval ); /* Wait for the next cycle */
-		generateTestPacketPairRequest();
+		generateTestPacketPairRequest(); //Commented out for test purposes
 	}
 }
 

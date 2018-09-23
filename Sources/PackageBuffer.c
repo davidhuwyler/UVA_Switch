@@ -42,11 +42,20 @@ void packageBuffer_init(tPackageBuffer* buffer)
 */
 bool packageBuffer_free(tPackageBuffer* buffer)
 {
+	buffer->count = 0;
+	buffer->freeSpace = PACKAGE_BUFFER_SIZE;
+	buffer->payloadNrLastInOrder = 0;
 	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 	{
+		if(!buffer->indexIsEmpty[i])
+		{
+			vPortFree(buffer->packageArray[i].payload);
+			buffer->packageArray[i].payload = NULL;
+		}
+
 		buffer->indexIsEmpty[i] = true;
-		vPortFree(buffer->packageArray[i].payload);
-		buffer->packageArray[i].payload = NULL;
+		buffer->sysTickTimestampBufferInsertion[i] = 0;
+		buffer->variable[i] = 0;
 	}
 }
 
@@ -58,9 +67,39 @@ bool packageBuffer_free(tPackageBuffer* buffer)
 bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 {
 	updateTickCounter();
-	if(buffer->freeSpace > 0 && !checkIfPackageInBuffer(buffer,packet->payloadNr))
+	if(buffer->freeSpace > 0)
 	{
 		uint16_t indexOfFreePackage;
+		if((checkIfPackageInBuffer(buffer,packet->payloadNr)))
+				return true;
+		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
+		{
+			buffer->indexIsEmpty[indexOfFreePackage] = false;
+			buffer->sysTickTimestampBufferInsertion[indexOfFreePackage] = tickCounter;
+			buffer->variable[indexOfFreePackage] = 0;
+			buffer->freeSpace --;
+			buffer->count ++;
+			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
+			return result;
+		}
+	}
+	return false;
+}
+
+/*!
+* \fn bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
+* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+*  Only gets into buffer if package if payload is not jet in the buffer and is new (payLoadNr)
+* \return true if successful
+*/
+bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
+{
+	updateTickCounter();
+	if(buffer->freeSpace > 0)
+	{
+		uint16_t indexOfFreePackage;
+		if((checkIfPackageInBuffer(buffer,packet->payloadNr)) || (packet->payloadNr<=buffer->payloadNrLastInOrder))
+				return true;
 		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
 		{
 			buffer->indexIsEmpty[indexOfFreePackage] = false;
@@ -83,9 +122,11 @@ bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable)
 {
 	updateTickCounter();
-	if(buffer->freeSpace > 0  && !checkIfPackageInBuffer(buffer,packet->payloadNr))
+	if(buffer->freeSpace > 0)
 	{
 		uint16_t indexOfFreePackage;
+		//if((checkIfPackageInBuffer(buffer,packet->payloadNr)) || (packet->payloadNr<=buffer->payloadNrLastInOrder))
+		//		return true;
 		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
 		{
 			/* Copy the Package into the buffer */
@@ -310,9 +351,8 @@ static bool getIndexOfNextOrderedPackage(tPackageBuffer* buffer, uint16* index)
 {
 	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 	{
-		if(!buffer->indexIsEmpty[i] && buffer->packageArray[i].payloadNr == (buffer->payloadNrLastInOrder)+1)
+		if((!buffer->indexIsEmpty[i]) && (buffer->packageArray[i].payloadNr == (buffer->payloadNrLastInOrder)+1))
 		{
-			buffer->payloadNrLastInOrder++;
 			*index = i;
 			return true;
 		}

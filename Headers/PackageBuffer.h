@@ -16,7 +16,7 @@
 /*! \def PACKAGE_BUFFER_SIZE
 *  \brief BufferSize in packages
 */
-#define PACKAGE_BUFFER_SIZE					20
+#define PACKAGE_BUFFER_SIZE					200
 
 typedef struct sPackageBuffer
 {
@@ -49,6 +49,14 @@ bool packageBuffer_free(tPackageBuffer* buffer);
 * \return true if successful
 */
 bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet);
+
+/*!
+* \fn bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
+* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+*  Only gets into buffer if package if payload is not jet in the buffer and is new (payLoadNr)
+* \return true if successful
+*/
+bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet);
 
 /*!
 * \fn bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable);

@@ -33,6 +33,7 @@ static void initTransportHandlerQueues(void);
 static BaseType_t peekAtReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
 static BaseType_t nofReceivedPayloadPacksInQueue(tUartNr uartNr);
 static BaseType_t popFromReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
+static void checkSessionNr(tWirelessPackage* pPackage);
 
 
 /* --------------- global variables -------------------- */
@@ -127,10 +128,12 @@ void transportHandler_TaskEntry(void* p)
 			{
 				peekAtReceivedPayloadPacksQueue(deviceNr, &package);
 
+				checkSessionNr(&package);
+
 			/*--------------> Incoming Package == DataPackage <-----------------*/
 				if(package.packType == PACK_TYPE_DATA_PACKAGE)
 				{
-					if(packageBuffer_put(&receiveBuffer[deviceNr],&package) != true)			//Put data-package into receiveBuffer
+					if(packageBuffer_putIfNotOld(&receiveBuffer[deviceNr],&package) != true)			//Put data-package into receiveBuffer
 					{
 						//vPortFree(package.payload);
 						//package.payload = NULL;
@@ -160,20 +163,21 @@ void transportHandler_TaskEntry(void* p)
 			/*--------------> Incoming Package == Acknowledge <-----------------*/
 				else if(package.packType == PACK_TYPE_REC_ACKNOWLEDGE)
 				{
+					uint16_t payloadNrToAck = package.payloadNr;
+					popFromReceivedPayloadPacksQueue(deviceNr, &package);
+					vPortFree(package.payload);
+					package.payload = NULL;
+
 					//Delete Acknowledged package from all sendBuffer
 					for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 					{
-						if(packageBuffer_getPackage(&sendBuffer[i],&package,package.payloadNr))
+						//if(packageBuffer_getPackage(&sendBuffer[i],&package,package.payloadNr))
+						while(packageBuffer_getPackage(&sendBuffer[i],&package,payloadNrToAck))
 						{
 							vPortFree(package.payload);
 							package.payload = NULL;
 						}
 					}
-
-					popFromReceivedPayloadPacksQueue(deviceNr, &package);
-					vPortFree(package.payload);
-					package.payload = NULL;
-
 				}
 
 			/*--------------> Incoming Package == NetworkTestPackage <----------*/
@@ -218,7 +222,10 @@ void transportHandler_TaskEntry(void* p)
 			{
 				if(numberOfResendAttempts<MAX_NOF_RESEND_ATTEMPTS)  //Resend
 				{
-					packageBuffer_putWithVar(&sendBuffer[deviceNr],&package,(numberOfResendAttempts+1)); //Reinsert Package in the Buffer with new Timestamp
+					if(!packageBuffer_putWithVar(&sendBuffer[deviceNr],&package,(numberOfResendAttempts+1)))//Reinsert Package in the Buffer with new Timestamp
+					{
+						for (;;){}; //Should never happen...
+					}
 					if (pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)		//Put data-package into Queues
 					{
 						vPortFree(package.payload);
@@ -238,12 +245,14 @@ void transportHandler_TaskEntry(void* p)
 
 
 			/*------------------------ Send out all packages from the buffer which are in order ---------------------------*/
+			static uint16_t mostCurrentPayloadNr[NUMBER_OF_UARTS];
 			while(packageBuffer_getNextOrderedPackage(&receiveBuffer[deviceNr],&package))
 			{
 				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
 				{
+					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
+					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], package.payloadNr);
 					pushPayloadOut(&package);
-					popFromReceivedPayloadPacksQueue(deviceNr,&package);
 					vPortFree(package.payload);
 					package.payload = NULL;
 				}
@@ -255,17 +264,22 @@ void transportHandler_TaskEntry(void* p)
 					break;
 				}
 			}
-			/*------------------------ Push Out received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
-			uint16_t mostCurrentPayloadNr = 0;
+			/*------------------------ Delete received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
 			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER))
 			{
+
+//				if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
+//					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
+//				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
+//				vPortFree(package.payload);
+//				package.payload = NULL;
 				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
 				{
 					pushPayloadOut(&package);
-					if(mostCurrentPayloadNr < package.payloadNr)
-						mostCurrentPayloadNr = package.payloadNr;
-					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr);
-					popFromReceivedPayloadPacksQueue(deviceNr,&package);
+					if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
+						mostCurrentPayloadNr[package.devNum] = package.payloadNr;
+					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
+				//	popFromReceivedPayloadPacksQueue(deviceNr,&package);
 					vPortFree(package.payload);
 					package.payload = NULL;
 				}
@@ -924,12 +938,21 @@ BaseType_t freeSpaceInReceivedPayloadPacksQueue(tUartNr uartNr)
 }
 
 /*!
-* \fn void resetAllTransportPackageCounters(void)
-* \brief Resets packageNr counter when sessionNr changed on other side
+* \fn void checkSessionNr(tWirelessPackage* pPackage)
+* \brief Resets receivedBuffer if sessionNr changed
 */
-void resetAllTransportPackageCounters(void)
+static void checkSessionNr(tWirelessPackage* pPackage)
 {
-	// ToDo: push all payload out and reset payload counter
+	static uint8_t lastSessionNr = 0;
+	if(pPackage->sessionNr != lastSessionNr)
+	{
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		{
+			packageBuffer_free(receiveBuffer);
+		}
+
+		if(pPackage->packType == PACK_TYPE_DATA_PACKAGE)
+			packageBuffer_setCurrentPayloadNR(&receiveBuffer[pPackage->devNum], pPackage->payloadNr);
+		lastSessionNr = pPackage->sessionNr;
+	}
 }
-
-
