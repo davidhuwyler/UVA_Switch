@@ -4,13 +4,6 @@
 #include <stdbool.h>
 #include "SpiHandler.h"
 
-typedef enum ePayloadNumbering
-{
-	PAYLOAD_NUMBER_IGNORED = 0x01,
-	PAYLOAD_REORDERING = 0x02,
-	ONLY_SEND_OUT_NEW_PAYLOAD = 0x03
-} tPayloadNumbering;
-
 typedef enum eDebugOutput
 {
 	DEBUG_OUTPUT_NONE = 0x01,
@@ -18,32 +11,18 @@ typedef enum eDebugOutput
 	DEBUG_OUTPUT_FULLLY_ENABLED = 0x03
 } tDebugOutput;
 
-typedef enum eLoadBalancing
-{
-	LOAD_BALANCING_AS_CONFIGURED = 0x01,
-	LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED = 0x02,
-	LOAD_BALANCING_USE_ALGORITHM = 0x03
-} tLoadBalancing;
-
 typedef struct Configurations {
 	/* BaudRateConfiguration */
    int BaudRatesWirelessConn[NUMBER_OF_UARTS]; //
    int BaudRatesDeviceConn[NUMBER_OF_UARTS]; //
    /* ConnectionConfiguration */
-   int PrioWirelessConnDev[NUMBER_OF_UARTS][NUMBER_OF_UARTS]; /* [uartNr][prioPerUart] */
-   int SendCntWirelessConnDev[NUMBER_OF_UARTS][NUMBER_OF_UARTS]; /* [uartNr][numberOfSendAttempts] */
+   int PrioDevice[NUMBER_OF_UARTS];
    /* TransmissionConfiguration */
-   int ResendDelayWirelessConn[NUMBER_OF_UARTS]; /* [delayPerWirelessConn] */
-   int MaxThroughputWirelessConn[NUMBER_OF_UARTS]; // ToDo: unused!!
+   int ResendDelayWirelessConn; /* [delayPerWirelessConn] */
+   int ResendCountWirelessConn; /* [delayPerWirelessConn] */
    int UsualPacketSizeDeviceConn[NUMBER_OF_UARTS];
    int PackageGenMaxTimeout[NUMBER_OF_UARTS];
-   int DelayDismissOldPackagePerDev[NUMBER_OF_UARTS];
-   bool SendAckPerWirelessConn[NUMBER_OF_UARTS];
-   bool UseCtsPerWirelessConn[NUMBER_OF_UARTS];
-   tPayloadNumbering PayloadNumberingProcessingMode[NUMBER_OF_UARTS]; /* per device side, NOT per wireless side */
-   int PayloadReorderingTimeout[NUMBER_OF_UARTS];
-   tLoadBalancing LoadBalancingMode;
-   bool SyncMessagingModeEnabledPerWlConn[NUMBER_OF_UARTS];
+   int PayloadReorderingTimeout;
    bool UseGolayPerWlConn[NUMBER_OF_UARTS];
    /* SoftwareConfiguration */
    bool TestHwLoopbackOnly;

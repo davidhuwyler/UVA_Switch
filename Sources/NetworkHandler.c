@@ -217,17 +217,18 @@ static bool sendGeneratedWlPackage(tWirelessPackage* pPackage, tUartNr wlConn)
 */
 static void getWlConnConfiguredForPrio(tUartNr uartNr, uint8_t desiredPrio, bool* prioFoundOnWlConn)
 {
-	for(int wlConn = 0; wlConn<NUMBER_OF_UARTS; wlConn++)
-	{
-		if(config.PrioWirelessConnDev[uartNr][wlConn] == desiredPrio)
-		{
-			prioFoundOnWlConn[wlConn] = true;
-		}
-		else
-		{
-			prioFoundOnWlConn[wlConn] = false;
-		}
-	}
+//	for(int wlConn = 0; wlConn<NUMBER_OF_UARTS; wlConn++)
+//	{
+//		prioFoundOnWlConn[wlConn] = true;
+//		if(config.PrioWirelessConnDev[uartNr][wlConn] == desiredPrio)
+//		{
+//			prioFoundOnWlConn[wlConn] = true;
+//		}
+//		else
+//		{
+//			prioFoundOnWlConn[wlConn] = false;
+//		}
+//	}
 }
 
 
@@ -238,22 +239,48 @@ static void getWlConnConfiguredForPrio(tUartNr uartNr, uint8_t desiredPrio, bool
 */
 static void findWlConnForDevice(tUartNr deviceNr, bool* wlConnToUse)
 {
-	for(int i = 0; i<NUMBER_OF_UARTS; i++)
+	//Workaround until routing is implemented:
+	if(deviceNr == 0)
 	{
-		wlConnToUse[i] = false;
+		wlConnToUse[0] = true;
+		wlConnToUse[1] = false;
+		wlConnToUse[2] = false;
+		wlConnToUse[3] = false;
 	}
-	switch(config.LoadBalancingMode)
+	else if(deviceNr == 1)
 	{
-		case LOAD_BALANCING_AS_CONFIGURED:
-			getWlConnConfiguredForPrio(deviceNr, 1, wlConnToUse);
-			break;
-		case LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED: /* costFunctionPerWlConn is either 0 or 100 */
-			// ToDo: Not implemented yet
-			break;
-		case LOAD_BALANCING_USE_ALGORITHM:
-			// ToDo: Not implemented yet
-			break;
+		wlConnToUse[0] = false;
+		wlConnToUse[1] = true;
+		wlConnToUse[2] = false;
+		wlConnToUse[3] = false;
 	}
+	else if(deviceNr == 2)
+	{
+		wlConnToUse[0] = false;
+		wlConnToUse[1] = false;
+		wlConnToUse[2] = true;
+		wlConnToUse[3] = false;
+	}
+	else if(deviceNr == 3)
+	{
+		wlConnToUse[0] = false;
+		wlConnToUse[1] = false;
+		wlConnToUse[2] = false;
+		wlConnToUse[3] = true;
+	}
+
+//	switch(config.LoadBalancingMode)
+//	{
+//		case LOAD_BALANCING_AS_CONFIGURED:
+//			getWlConnConfiguredForPrio(deviceNr, 1, wlConnToUse);
+//			break;
+//		case LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED: /* costFunctionPerWlConn is either 0 or 100 */
+//			// ToDo: Not implemented yet
+//			break;
+//		case LOAD_BALANCING_USE_ALGORITHM:
+//			// ToDo: Not implemented yet
+//			break;
+//	}
 }
 
 /*!
@@ -296,7 +323,7 @@ static bool processAssembledPackage(tUartNr wlConn)
 	/* no space for package in transport handler or no space for acknowledge in package handler */
 	if((package.packType == PACK_TYPE_DATA_PACKAGE) && (freeSpaceInReceivedPayloadPacksQueue(package.devNum) <= 0) ||
 	   (package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE) && (freeSpaceInReceivedPayloadPacksQueue(package.devNum) <= 0) ||
-	   ((package.packType == PACK_TYPE_REC_ACKNOWLEDGE) && (config.SendAckPerWirelessConn[wlConn]) && (freeSpaceInPackagesToDisassembleQueue(wlConn) <= 0)) )
+	   ((package.packType == PACK_TYPE_REC_ACKNOWLEDGE) && (freeSpaceInPackagesToDisassembleQueue(wlConn) <= 0)) )
 	{
 		return false; /* not enough space */
 	}

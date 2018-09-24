@@ -218,9 +218,9 @@ void transportHandler_TaskEntry(void* p)
 
 			/*------------------------ Resend Unacknowledged Wireless Packages ---------------------------*/
 			uint16_t numberOfResendAttempts;
-			while(packageBuffer_getNextPackageOlderThanTimeoutWithVar(&sendBuffer[deviceNr],&package,&numberOfResendAttempts,TIME_BETWEEN_RESEND_ATTEMPTS))
+			while(packageBuffer_getNextPackageOlderThanTimeoutWithVar(&sendBuffer[deviceNr],&package,&numberOfResendAttempts,config.ResendDelayWirelessConn))
 			{
-				if(numberOfResendAttempts<MAX_NOF_RESEND_ATTEMPTS)  //Resend
+				if(numberOfResendAttempts<config.ResendCountWirelessConn)  //Resend
 				{
 					if(!packageBuffer_putWithVar(&sendBuffer[deviceNr],&package,(numberOfResendAttempts+1)))//Reinsert Package in the Buffer with new Timestamp
 					{
@@ -265,7 +265,7 @@ void transportHandler_TaskEntry(void* p)
 				}
 			}
 			/*------------------------ Delete received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
-			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,TIMEOUT_PUSH_OUT_PACKAGE_OUT_OF_ORDER))
+			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,config.PayloadReorderingTimeout))
 			{
 
 //				if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)

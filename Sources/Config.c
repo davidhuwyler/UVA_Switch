@@ -126,47 +126,16 @@ bool readConfig(void)
 
 
   	/* -------- ConnectionConfiguration -------- */
-  	/* PRIO_WIRELESS_CONN_DEV_0 */
-  	numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "PRIO_WIRELESS_CONN_DEV_0",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.PrioWirelessConnDev[0]);
-
-  	/* PRIO_WIRELESS_CONN_DEV_1 */
-  	numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "PRIO_WIRELESS_CONN_DEV_1",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.PrioWirelessConnDev[1]);
-
-  	/* PRIO_WIRELESS_CONN_DEV_2 */
-  	numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "PRIO_WIRELESS_CONN_DEV_2",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.PrioWirelessConnDev[2]);
-
-  	/* PRIO_WIRELESS_CONN_DEV_3 */
-    numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "PRIO_WIRELESS_CONN_DEV_3",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.PrioWirelessConnDev[3]);
-
-  	/* SEND_CNT_WIRELESS_CONN_DEV_0 */
-  	numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "SEND_CNT_WIRELESS_CONN_DEV_0",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.SendCntWirelessConnDev[0]);
-
-  	/* SEND_CNT_WIRELESS_CONN_DEV_1 */
-  	numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "SEND_CNT_WIRELESS_CONN_DEV_1",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.SendCntWirelessConnDev[1]);
-
-  	/* SEND_CNT_WIRELESS_CONN_DEV_2 */
-  	numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "SEND_CNT_WIRELESS_CONN_DEV_2",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.SendCntWirelessConnDev[2]);
-
-  	/* SEND_CNT_WIRELESS_CONN_DEV_3 */
-    numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "SEND_CNT_WIRELESS_CONN_DEV_3",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-    csvToInt(copiedCsv, config.SendCntWirelessConnDev[3]);
+  	/* PRIO_DEVICE */
+    numberOfCharsCopied = MINI_ini_gets("[ConnectionConfiguration]", "PRIO_DEVICE ",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+  	csvToInt(copiedCsv, config.PrioDevice);
 
   	/* -------- TransmissionConfiguration -------- */
-  	/* PRIO_WIRELESS_CONN */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "RESEND_DELAY_WIRELESS_CONN",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.ResendDelayWirelessConn);
+  	/* ResendDelayWirelessConn */
+  	config.ResendDelayWirelessConn = MINI_ini_getl("TransmissionConfiguration", "RESEND_DELAY_WIRELESS_CONN",  DEFAULT_INT, "serialSwitch_Config.ini");
 
-  	/* MAX_THROUGHPUT_WIRELESS_CONN */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "MAX_THROUGHPUT_WIRELESS_CONN",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.MaxThroughputWirelessConn);
-
+  	/* ResendCountWirelessConn */
+  	config.ResendCountWirelessConn = MINI_ini_getl("TransmissionConfiguration", "RESEND_COUNT_WIRELESS_CONN",  DEFAULT_INT, "serialSwitch_Config.ini");
 
   	/* USUAL_PACKET_SIZE_DEVICE_CONN */
   	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USUAL_PACKET_SIZE_DEVICE_CONN",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
@@ -176,66 +145,8 @@ bool readConfig(void)
   	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "PACKAGE_GEN_MAX_TIMEOUT",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
   	csvToInt(copiedCsv, config.PackageGenMaxTimeout);
 
-  	/* DELAY_DISMISS_OLD_PACK_PER_DEV */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "DELAY_DISMISS_OLD_PACK_PER_DEV",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.DelayDismissOldPackagePerDev);
-
-  	/* SEND_ACK_PER_WIRELESS_CONN */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "SEND_ACK_PER_WIRELESS_CONN",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToBool(copiedCsv, config.SendAckPerWirelessConn);
-
-  	/* USE_CTS_PER_WIRELESS_CONN */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USE_CTS_PER_WIRELESS_CONN",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToBool(copiedCsv, config.UseCtsPerWirelessConn);
-
-  	/* PACK_NUMBERING_PROCESSING_MODE */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "PAYLOAD_NUMBERING_PROCESSING_MODE",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, tmpIntArr);
-  	for(int i=0; i<NUMBER_OF_UARTS; i++)
-  	{
-  		switch(tmpIntArr[i])
-  		{
-  			case PAYLOAD_NUMBER_IGNORED:
-  				config.PayloadNumberingProcessingMode[i] = PAYLOAD_NUMBER_IGNORED;
-  		  		break;
-  			case PAYLOAD_REORDERING:
-  				config.PayloadNumberingProcessingMode[i] = PAYLOAD_REORDERING;
-  				break;
-  			case ONLY_SEND_OUT_NEW_PAYLOAD:
-  				config.PayloadNumberingProcessingMode[i] = ONLY_SEND_OUT_NEW_PAYLOAD;
-  				break;
-  			default:
-  				config.PayloadNumberingProcessingMode[i] = PAYLOAD_NUMBER_IGNORED;
-  				break;
-  		}
-  	}
-
   	/* PACK_REORDERING_TIMEOUT */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "PAYLOAD_REORDERING_TIMEOUT",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToInt(copiedCsv, config.PayloadReorderingTimeout);
-
-  	/* SYNC_MESSAGING_MODE_ENABLED_PER_WL_CONN */
-  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "SYNC_MESSAGING_MODE_ENABLED_PER_WL_CONN",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
-  	csvToBool(copiedCsv, config.SyncMessagingModeEnabledPerWlConn);
-
-  	/* LOAD_BALANCING_MODE */
-  	config.LoadBalancingMode = MINI_ini_getl("TransmissionConfiguration", "LOAD_BALANCING_MODE",  DEFAULT_BOOL, "serialSwitch_Config.ini");
-  	switch(config.LoadBalancingMode)
-  	{
-  		case LOAD_BALANCING_AS_CONFIGURED:
-  			config.LoadBalancingMode = LOAD_BALANCING_AS_CONFIGURED;
-  	  		break;
-  	 	case LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED:
-  	  		config.LoadBalancingMode = LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED;
-  	  		break;
-  	 	case LOAD_BALANCING_USE_ALGORITHM:
-  	  		config.LoadBalancingMode = LOAD_BALANCING_USE_ALGORITHM;
-  	  		break;
-  	 	default:
-  	  		config.LoadBalancingMode = LOAD_BALANCING_AS_CONFIGURED;
-  	  		break;
-
-  	 }
+  	config.PayloadReorderingTimeout = MINI_ini_getl("TransmissionConfiguration", "PAYLOAD_REORDERING_TIMEOUT",  DEFAULT_INT, "serialSwitch_Config.ini");
 
   	/* USE_GOLAY_ERROR_CORRECTING_CODE */
   	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USE_GOLAY_ERROR_CORRECTING_CODE",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
@@ -305,40 +216,6 @@ bool readConfig(void)
 */
 void validateSwConfiguration(void)
 {
-	for(int devNr=0; devNr < NUMBER_OF_UARTS; devNr++)
-	{
-		// todo: validate software configuration!
-		if(config.SendAckPerWirelessConn[devNr])
-		{
-			if(config.LoadBalancingMode == LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED) /* check if there is a WL conn with priority 1 and 2 */
-			{
-				/* check if priority 1 and 2 are configured for this load balancing setting */
-				for(int prio = 1; prio<=2; prio++)
-				{
-					uint8_t wlConnectionToUse = 0;
-					while ( wlConnectionToUse < NUMBER_OF_UARTS && config.PrioWirelessConnDev[devNr][wlConnectionToUse] != prio )
-					{
-						++wlConnectionToUse;
-					}
-					if(wlConnectionToUse >= NUMBER_OF_UARTS) /* priority not configured */
-					{
-						config.LoadBalancingMode = LOAD_BALANCING_AS_CONFIGURED; /* set load balancing default */
-						// ToDo: print warning in shell
-					}
-				}
-			}
-		}
-		else
-		{
-			/* load balancing not possible in mode 2 when no ACK configured */
-			if(config.LoadBalancingMode == LOAD_BALANCING_SWITCH_WL_CONN_WHEN_ACK_NOT_RECEIVED)
-			{
-				config.LoadBalancingMode = LOAD_BALANCING_AS_CONFIGURED; /* set load balancing default */
-				// ToDo: print warning in shell
-			}
-			config.SyncMessagingModeEnabledPerWlConn[devNr] = 0; /* no acknowledge sent -> synchoronous transmission mode disabled */
-		}
-	}
 	/* constrain task execution intervals */
 	UTIL1_constrain(config.SdCardSyncInterval_s, 1, 1000); /* 1sec...1000sec */
 	UTIL1_constrain(config.SpiHandlerTaskInterval, 1, 1000); /* 1ms...1sec */

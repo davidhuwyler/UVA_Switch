@@ -118,10 +118,10 @@ void spiHandler_TaskEntry(void* p)
 
 		/* configure hardware flow control (CTS only) if configured */
 		spiWriteToAllUartInterfaces(MAX_REG_MODE1, 0x02);	/* TX needs to be disabled before changing anything on the CTS behaviour */
-		if (config.UseCtsPerWirelessConn[0] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_0, MAX_REG_FLOW_CTRL, 0x02);
-		if (config.UseCtsPerWirelessConn[1] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_1, MAX_REG_FLOW_CTRL, 0x02);
-		if (config.UseCtsPerWirelessConn[2] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_2, MAX_REG_FLOW_CTRL, 0x02);
-		if (config.UseCtsPerWirelessConn[3] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_3, MAX_REG_FLOW_CTRL, 0x02);
+		//if (config.UseCtsPerWirelessConn[0] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_0, MAX_REG_FLOW_CTRL, 0x02);
+		//if (config.UseCtsPerWirelessConn[1] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_1, MAX_REG_FLOW_CTRL, 0x02);
+		//if (config.UseCtsPerWirelessConn[2] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_2, MAX_REG_FLOW_CTRL, 0x02);
+		//if (config.UseCtsPerWirelessConn[3] > 0)		spiSingleWriteTransfer(MAX_14830_WIRELESS_SIDE, MAX_UART_3, MAX_REG_FLOW_CTRL, 0x02);
 		//spiWriteToAllUartInterfaces(MAX_REG_MODE1, 0x00);	/* enable TX again */
 
 		/* PLL bypass disable, PLL enable, external crystal enable */
@@ -689,12 +689,12 @@ static uint16_t readQueueAndWriteToHwBuf(tSpiSlaves spiSlave, tUartNr uartNr, xQ
 		for (cnt = 1; cnt < numOfBytesToWrite+1; cnt++)
 		{
 			/* check if max throughput reached */
-			if((spiSlave == MAX_14830_WIRELESS_SIDE) && (config.MaxThroughputWirelessConn[uartNr] <= throughputPerWlConn[uartNr]))
-			{
-				char infoBuf[50];
-				XF1_xsprintf(infoBuf, "%u: Throughput maximum reached for WL conn %u -> hold off from sending more bytes\r\n", xTaskGetTickCount(), (unsigned int)uartNr);
-				break; /* max throughput reached for this second - leave for-loop without popping more data from queue */
-			}
+//			if((spiSlave == MAX_14830_WIRELESS_SIDE) && (config.MaxThroughputWirelessConn[uartNr] <= throughputPerWlConn[uartNr]))
+//			{
+//				char infoBuf[50];
+//				XF1_xsprintf(infoBuf, "%u: Throughput maximum reached for WL conn %u -> hold off from sending more bytes\r\n", xTaskGetTickCount(), (unsigned int)uartNr);
+//				break; /* max throughput reached for this second - leave for-loop without popping more data from queue */
+//			}
 			/* try to pop data from queue */
 			if (xQueueReceive(queue, &buffer[cnt], ( TickType_t ) pdMS_TO_TICKS(SPI_HANDLER_QUEUE_DELAY) ) == pdFAIL)
 			{
@@ -733,16 +733,16 @@ static uint16_t readQueueAndWriteToHwBuf(tSpiSlaves spiSlave, tUartNr uartNr, xQ
 		}
 		else /* WL side */
 		{
-			if (config.UseCtsPerWirelessConn[uartNr])
-			{
-				/* When hardware flow control is enabled, disable it temporary */
-				spiSingleWriteTransfer(spiSlave, uartNr, MAX_REG_FLOW_CTRL, 0x00);
-			}
-			else
-			{
+//			if (config.UseCtsPerWirelessConn[uartNr])
+//			{
+//				/* When hardware flow control is enabled, disable it temporary */
+//				spiSingleWriteTransfer(spiSlave, uartNr, MAX_REG_FLOW_CTRL, 0x00);
+//			}
+//			else
+//			{
 				/* only do it here when hardware flow control is disabled */
 				spiSingleWriteTransfer(spiSlave, uartNr, MAX_REG_MODE1, 0x02);
-			}
+//			}
 		}
 		/* transfer data popped from queue. cnt=numberOfTransfers-1 */
 		if(spiSlave == MAX_14830_WIRELESS_SIDE && config.UseGolayPerWlConn[uartNr])
@@ -777,16 +777,16 @@ static uint16_t readQueueAndWriteToHwBuf(tSpiSlaves spiSlave, tUartNr uartNr, xQ
 		}
 		else /* MAX_14830_WIRELESS_SIDE */
 		{
-			if (config.UseCtsPerWirelessConn[(uint8_t)uartNr] > 0)
-			{
-				/* Enable hardware flow control again */
-				spiSingleWriteTransfer(spiSlave, uartNr, MAX_REG_FLOW_CTRL, 0x02);
-			}
-			else
-			{
+//			if (config.UseCtsPerWirelessConn[(uint8_t)uartNr] > 0)
+//			{
+//				/* Enable hardware flow control again */
+//				spiSingleWriteTransfer(spiSlave, uartNr, MAX_REG_FLOW_CTRL, 0x02);
+//			}
+//			else
+//			{
 				/* only do it here when hardware flow control is disabled */
 				spiSingleWriteTransfer(spiSlave, uartNr, MAX_REG_MODE1, 0x00);
-			}
+//			}
 		}
 	}
 	//vTracePrint(userEvent[1], "1");
