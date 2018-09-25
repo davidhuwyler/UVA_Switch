@@ -267,29 +267,33 @@ void transportHandler_TaskEntry(void* p)
 			/*------------------------ Delete received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
 			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,config.PayloadReorderingTimeout))
 			{
-
+				if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
+					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
+				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
+				vPortFree(package.payload);
+				package.payload = NULL;
 //				if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
 //					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
 //				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
 //				vPortFree(package.payload);
 //				package.payload = NULL;
-				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
-				{
-					pushPayloadOut(&package);
-					if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
-						mostCurrentPayloadNr[package.devNum] = package.payloadNr;
-					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
-				//	popFromReceivedPayloadPacksQueue(deviceNr,&package);
-					vPortFree(package.payload);
-					package.payload = NULL;
-				}
-				else
-				{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
-					packageBuffer_put(&receiveBuffer[deviceNr],&package);
-					vPortFree(package.payload);
-					package.payload = NULL;
-					break;
-				}
+//				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
+//				{
+//					//pushPayloadOut(&package);
+//					if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
+//						mostCurrentPayloadNr[package.devNum] = package.payloadNr;
+//					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
+//				//	popFromReceivedPayloadPacksQueue(deviceNr,&package);
+//					vPortFree(package.payload);
+//					package.payload = NULL;
+//				}
+//				else
+//				{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
+//					packageBuffer_put(&receiveBuffer[deviceNr],&package);
+//					vPortFree(package.payload);
+//					package.payload = NULL;
+//					break;
+//				}
 			}
 
 //#if 1
