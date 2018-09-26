@@ -21,12 +21,12 @@
 /*! \def QUEUE_NUM_OF_READY_TO_SEND_WL_PACKS
 *  \brief Number of wireless packages that should have find space within a single queue.
 */
-#define QUEUE_NUM_OF_READY_TO_SEND_WL_PACKS			25
+#define QUEUE_NUM_OF_READY_TO_SEND_WL_PACKS			100
 
 /*! \def QUEUE_NUM_OF_RECEIVED_WL_PACKS
 *  \brief Number of wireless packages that should have find space within a single queue.
 */
-#define QUEUE_NUM_OF_RECEIVED_PAYLOAD_PACKS			25
+#define QUEUE_NUM_OF_RECEIVED_PAYLOAD_PACKS			100
 
 /*!
 * \fn void networkHandler_TaskEntry(void)
@@ -51,7 +51,7 @@ void transportHandler_TaskInit(void);
 * \param pPackage: Pointer to empty package
 * \return Status if xQueueReceive has been successful
 */
-BaseType_t popFromGeneratedPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
+BaseType_t popFromGeneratedPacksQueue(tWirelessPackage* pPackage);
 
 
 /*!
@@ -60,7 +60,7 @@ BaseType_t popFromGeneratedPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage
 * \param uartNr: UART number where data was collected.
 * \return Status if xQueueReceive has been successful
 */
-BaseType_t nofGeneratedPayloadPacksInQueue(tUartNr uartNr);
+BaseType_t nofGeneratedPayloadPacksInQueue();
 
 
 /*!
@@ -70,7 +70,7 @@ BaseType_t nofGeneratedPayloadPacksInQueue(tUartNr uartNr);
 * \param pPackage: Pointer to tWirelessPackage element where data will be copied
 * \return Status if xQueuePeek has been successful
 */
-BaseType_t peekAtGeneratedPayloadPackInQueue(tUartNr uartNr, tWirelessPackage* pPackage);
+BaseType_t peekAtGeneratedPayloadPackInQueue(tWirelessPackage* pPackage);
 
 /*!
 * \fn ByseType_t pushToReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage)
@@ -79,7 +79,7 @@ BaseType_t peekAtGeneratedPayloadPackInQueue(tUartNr uartNr, tWirelessPackage* p
 * \param pPackage: The location of the package to be pushed to the queue
 * \return Status if xQueueSendToBack has been successful
 */
-BaseType_t pushToReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage);
+BaseType_t pushToReceivedPayloadPacksQueue(tWirelessPackage* pPackage);
 
 /*!
 * \fn ByseType_t freeSpaceInReceivedPayloadPacksQueue(tUartNr uartNr)
@@ -87,7 +87,7 @@ BaseType_t pushToReceivedPayloadPacksQueue(tUartNr uartNr, tWirelessPackage* pPa
 * \param uartNr: UART number where payload will be pushed out
 * \return Number of elements that can still be pushed to this queue
 */
-BaseType_t freeSpaceInReceivedPayloadPacksQueue(tUartNr uartNr);
+BaseType_t freeSpaceInReceivedPayloadPacksQueue();
 
 
 #endif /* HEADERS_TRANSPORTHANDLER_H_ */

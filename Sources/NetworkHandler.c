@@ -74,9 +74,8 @@ void networkHandler_TaskEntry(void* p)
 					{
 //						if( ! (config.SyncMessagingModeEnabledPerWlConn[wlConn] && (ackReceived[wlConn] == false)) ) /* sync mode not enabled or last ack received */
 //						{
-							if(peekAtGeneratedPayloadPackInQueue(deviceNr, &package) == pdTRUE) /* peeking at package from upper handler successful? */
+							if(peekAtGeneratedPayloadPackInQueue(&package) == pdTRUE  && package.devNum == deviceNr) /* peeking at package from upper handler successful? */
 							{
-
 								tWirelessPackage tmpPack;
 								copyPackage(&package, &tmpPack);
 								if(sendGeneratedWlPackage(&tmpPack, wlConn) == false) /* send the generated package down and store it internally if ACK is configured */
@@ -95,7 +94,7 @@ void networkHandler_TaskEntry(void* p)
 				}
 				if(packSent)
 				{
-					popFromGeneratedPacksQueue(deviceNr, &package); /* this is done here because if two wlConn configured with same priority, package cant be removed twice */
+					popFromGeneratedPacksQueue(&package); /* this is done here because if two wlConn configured with same priority, package cant be removed twice */
 					vPortFree(package.payload);
 					package.payload = NULL;
 				}
@@ -345,7 +344,7 @@ static bool processAssembledPackage(tUartNr wlConn)
 		}
 
 		/* push package to Trandport handler for processing payload */
-		pushToReceivedPayloadPacksQueue(package.devNum, &package);
+		pushToReceivedPayloadPacksQueue(&package);
 	}
 //	else if(package.packType == PACK_TYPE_REC_ACKNOWLEDGE) /* acknowledge package received */
 //	{

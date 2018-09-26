@@ -60,6 +60,28 @@ bool packageBuffer_free(tPackageBuffer* buffer)
 }
 
 /*!
+* \fn bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer)
+* \brief Frees all packets in the buffer with a lower or equal payloadNr as the current payloadNr 
+* \return true if successful
+*/
+bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer)
+{
+	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
+	{
+		if(!buffer->indexIsEmpty[i] && buffer->packageArray[i].payloadNr <= buffer->payloadNrLastInOrder)
+		{
+			vPortFree(buffer->packageArray[i].payload);
+			buffer->packageArray[i].payload = NULL;
+			buffer->count --;
+			buffer->freeSpace ++;
+			buffer->indexIsEmpty[i] = true;
+			buffer->sysTickTimestampBufferInsertion[i] = 0;
+			buffer->variable[i] = 0;
+		}
+	}
+}
+
+/*!
 * \fn bool packageBuffer_put(tWirelessPackage* packet);
 * \brief Copies the packet into the buffer. Payload dosnt get Copied!
 * \return true if successful
@@ -317,10 +339,18 @@ bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,siz
 */
 void packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr)
 {
-	buffer->payloadNrLastInOrder = payloadNr;
+	if(buffer->payloadNrLastInOrder < payloadNr)
+		buffer->payloadNrLastInOrder = payloadNr;
 }
 
-
+/*!
+* \fn uint16_t packageBuffer_getCurrentPayloadNR(tPackageBuffer* buffer);
+* \brief returns the last payloadNr which was received
+*/
+uint16_t packageBuffer_getCurrentPayloadNR(tPackageBuffer* buffer)
+{
+	return buffer->payloadNrLastInOrder;
+}
 
 /*!
 * \fn static bool getIndexOfFreeSpaceInBuffer(tPackageBuffer* buffer, uint16* index)
