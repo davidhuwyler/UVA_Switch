@@ -210,9 +210,27 @@ void transportHandler_TaskEntry(void* p)
 						vPortFree(package.payload);
 						package.payload = NULL;
 					}
+
 					/* Test-Packet returned from receiver */
 					else if(payload.returned)
 					{
+						/* Update the timestamp with the received time */
+						//Copy payload out of testpackage
+						tTestPackagePayload payload;
+						uint8_t *bytePtrPayload = (uint8_t*) &payload;
+						for (int i = 0; i < sizeof(tTestPackagePayload); i++)
+						{
+							bytePtrPayload[i] = package.payload[i];
+						}
+						payload.sendTimestamp =  xTaskGetTickCount();
+						//Copy payload back into testpackage
+						*bytePtrPayload = (uint8_t*) &payload;
+						for (int i = 0; i < sizeof(tTestPackagePayload); i++)
+						{
+							package.payload[i] = bytePtrPayload[i];
+						}
+
+						//Put the TestPackage into the queue for the NetworkMetrics
 						tWirelessPackage tempPack;
 						copyPackage(&package,&tempPack);
 						pushToTestPacketResultsQueue(&tempPack);

@@ -28,7 +28,12 @@
 /*! \def TIMEOUT_TEST_PACKET_RETURN
 *  \brief Timeout for the Test-Packet to return to the sender [ms]
 */
-#define TIMEOUT_TEST_PACKET_RETURN     			20000
+#define TIMEOUT_TEST_PACKET_RETURN     				2000
+
+/*! \def NOF_PACKS_FOR_PACKET_LOSS_RATIO
+*  \brief How many Test-Packets should be taken into account for the RLR metric
+*/
+#define NOF_PACKS_FOR_PACKET_LOSS_RATIO     		20
 
 
 /*!
