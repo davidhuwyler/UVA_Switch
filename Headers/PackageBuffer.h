@@ -16,7 +16,7 @@
 /*! \def PACKAGE_BUFFER_SIZE
 *  \brief BufferSize in packages
 */
-#define PACKAGE_BUFFER_SIZE					400
+#define PACKAGE_BUFFER_SIZE					200
 
 typedef struct sPackageBuffer
 {
@@ -42,13 +42,6 @@ void packageBuffer_init(tPackageBuffer* buffer);
 * \return true if successful
 */
 bool packageBuffer_free(tPackageBuffer* buffer);
-
-/*!
-* \fn bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer)
-* \brief Frees all packets in the buffer with a lower or equal payloadNr as the current payloadNr 
-* \return true if successful
-*/
-bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer);
 
 /*!
 * \fn bool packageBuffer_put(tWirelessPackage* packet);
@@ -127,11 +120,5 @@ bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,siz
 * \brief sets the payloadNr Counter to the specified payloadNr
 */
 void packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr);
-
-/*!
-* \fn uint16_t packageBuffer_getCurrentPayloadNR(tPackageBuffer* buffer);
-* \brief returns the last payloadNr which was received
-*/
-uint16_t packageBuffer_getCurrentPayloadNR(tPackageBuffer* buffer);
 
 #endif /* HEADERS_PACKAGEBUFFER_H_ */
