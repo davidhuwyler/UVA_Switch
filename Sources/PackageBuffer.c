@@ -83,7 +83,7 @@ bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer)
 
 /*!
 * \fn bool packageBuffer_put(tWirelessPackage* packet);
-* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \brief Copies the packet into the buffer.
 * \return true if successful
 */
 bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
@@ -110,7 +110,7 @@ bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet)
 
 /*!
 * \fn bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
-* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \brief Copies the packet into the buffer.
 *  Only gets into buffer if package if payload is not jet in the buffer and is new (payLoadNr)
 * \return true if successful
 */
@@ -138,7 +138,7 @@ bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
 
 /*!
 * \fn bool packageBuffer_put(tWirelessPackage* packet);
-* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \brief Copies the packet into the buffer.
 * \return true if successful
 */
 bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable)
@@ -155,6 +155,31 @@ bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,u
 			buffer->indexIsEmpty[indexOfFreePackage] = false;
 			buffer->sysTickTimestampBufferInsertion[indexOfFreePackage] = tickCounter;
 			buffer->variable[indexOfFreePackage] = variable;
+			buffer->freeSpace --;
+			buffer->count ++;
+			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
+			return result;
+		}
+	}
+	return false;
+}
+
+/*!
+* \fn bool packageBuffer_put(tWirelessPackage* packet);
+* \brief Copies the packet into the buffer. Does not check if package payloadNr already in Buffer
+* \return true if successful
+*/
+bool packageBuffer_putNotUnique(tPackageBuffer* buffer, tWirelessPackage* packet)
+{
+	updateTickCounter();
+	if(buffer->freeSpace > 0)
+	{
+		uint16_t indexOfFreePackage;
+		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
+		{
+			buffer->indexIsEmpty[indexOfFreePackage] = false;
+			buffer->sysTickTimestampBufferInsertion[indexOfFreePackage] = tickCounter;
+			buffer->variable[indexOfFreePackage] = 0;
 			buffer->freeSpace --;
 			buffer->count ++;
 			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);

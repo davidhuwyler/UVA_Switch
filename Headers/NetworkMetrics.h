@@ -8,6 +8,8 @@
 #ifndef HEADERS_NETWORKMETRICS_H_
 #define HEADERS_NETWORKMETRICS_H_
 
+#include "PackageHandler.h"
+
 /*! \def NETWORK_METRICS_QUEUE_DELAY
 *  \brief Number of ticks to wait on byte queue operations within this task
 */
@@ -21,19 +23,13 @@
 /*! \def QUEUE_NOF_TEST_PACKET_RESULTS
 *  \brief Queue length of test packets results
 */
-#define QUEUE_NOF_TEST_PACKET_RESULTS   			20
+#define QUEUE_NOF_TEST_PACKET_RESULTS   			50
 
-/*! \struct sTestPackageResults
-*  \brief Structure holds the results of the Test-Packets
+/*! \def TIMEOUT_TEST_PACKET_RETURN
+*  \brief Timeout for the Test-Packet to return to the sender [ms]
 */
-typedef struct sTestPackageResults
-{
-	uint16_t timeBetweenPacketPair;		/* Delay between the two test packets */
-	uint16_t rtt1;  					/* Round trip time of the first packet */
-	uint16_t rtt2;  					/* Round trip time of the second packet */
-	uint16_t maxQueueLength1; 			/* max Byte queue Length first packet*/
-	uint16_t maxQueueLength2; 			/* max Byte queue Length second packet */
-} tTestPackageResults;
+#define TIMEOUT_TEST_PACKET_RETURN     			20000
+
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -56,12 +52,12 @@ void networkMetrics_TaskInit(void);
 BaseType_t popFromRequestNewTestPacketPairQueue(bool* request);
 
 /*!
-* \fn ByseType_t pushToTestPacketResultsQueue(tTestPackageResults* results);
+* \fn BaseType_t pushToTestPacketResultsQueue(tWirelessPackage* results);
 * \brief Stores results in queue
 * \param tTestPackageResults: The location of the results to be pushed to the queue
 * \return Status if xQueueSendToBack has been successful
 */
-BaseType_t pushToTestPacketResultsQueue(tTestPackageResults* results);
+BaseType_t pushToTestPacketResultsQueue(tWirelessPackage* results);
 
 
 #endif /* HEADERS_NETWORKMETRICS_H_ */

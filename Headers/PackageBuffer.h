@@ -16,7 +16,7 @@
 /*! \def PACKAGE_BUFFER_SIZE
 *  \brief BufferSize in packages
 */
-#define PACKAGE_BUFFER_SIZE					200
+#define PACKAGE_BUFFER_SIZE					150
 
 typedef struct sPackageBuffer
 {
@@ -52,14 +52,14 @@ bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer);
 
 /*!
 * \fn bool packageBuffer_put(tWirelessPackage* packet);
-* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \brief Copies the packet into the buffer.
 * \return true if successful
 */
 bool packageBuffer_put(tPackageBuffer* buffer, tWirelessPackage* packet);
 
 /*!
 * \fn bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
-* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \brief Copies the packet into the buffer.
 *  Only gets into buffer if package if payload is not jet in the buffer and is new (payLoadNr)
 * \return true if successful
 */
@@ -67,10 +67,17 @@ bool packageBuffer_putIfNotOld(tPackageBuffer* buffer, tWirelessPackage* packet)
 
 /*!
 * \fn bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable);
-* \brief Copies the packet into the buffer. Payload dosnt get Copied!
+* \brief Copies the packet into the buffer.
 * \return true if successful
 */
 bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t variable);
+
+/*!
+* \fn bool packageBuffer_put(tWirelessPackage* packet);
+* \brief Copies the packet into the buffer. Does not check if package payloadNr already in Buffer
+* \return true if successful
+*/
+bool packageBuffer_putNotUnique(tPackageBuffer* buffer, tWirelessPackage* packet);
 
 /*!
 * \fn bool packageBuffer_getNextOrderedPackage(tWirelessPackage* packet);

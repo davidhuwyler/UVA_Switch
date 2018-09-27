@@ -422,7 +422,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 						pushMsgToShellQueue(infoBuf);
 					}
 					/* CRC is valid - also check if the header parameters are within the valid range */
-					if ((currentWirelessPackage[wlConn].packType > PACK_TYPE_NETWORK_TEST_PACKAGE) ||
+					if ((currentWirelessPackage[wlConn].packType > PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND) ||
 						(currentWirelessPackage[wlConn].packType == 0) ||
 						(currentWirelessPackage[wlConn].devNum >= NUMBER_OF_UARTS) ||
 						(currentWirelessPackage[wlConn].payloadSize > PACKAGE_MAX_PAYLOAD_SIZE))
@@ -525,7 +525,8 @@ static void assembleWirelessPackages(uint8_t wlConn)
 								}
 							}
 							else if ((currentWirelessPackage[wlConn].packType == PACK_TYPE_DATA_PACKAGE) ||
-									 (currentWirelessPackage[wlConn].packType == PACK_TYPE_NETWORK_TEST_PACKAGE))
+									 (currentWirelessPackage[wlConn].packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST) ||
+									 (currentWirelessPackage[wlConn].packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND))
 							{
 								/* update throughput printout */
 								numberOfPacksReceived[wlConn]++;
