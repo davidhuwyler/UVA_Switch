@@ -164,19 +164,19 @@ void transportHandler_TaskEntry(void* p)
 				else if(package.packType == PACK_TYPE_REC_ACKNOWLEDGE)
 				{
 					uint16_t payloadNrToAck = package.payloadNr;
+					uint16_t payloadNrTransmissionOk = package.packNr;
 					popFromReceivedPayloadPacksQueue(deviceNr, &package);
 					vPortFree(package.payload);
 					package.payload = NULL;
 
 					//Delete Acknowledged package from all sendBuffer
-					for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+					packageBuffer_setCurrentPayloadNR(&sendBuffer[deviceNr],payloadNrTransmissionOk);
+					packageBuffer_freeOlderThanCurrentPackage(&sendBuffer[deviceNr]);
+					
+					while(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,payloadNrToAck))
 					{
-						//if(packageBuffer_getPackage(&sendBuffer[i],&package,package.payloadNr))
-						while(packageBuffer_getPackage(&sendBuffer[i],&package,payloadNrToAck))
-						{
-							vPortFree(package.payload);
-							package.payload = NULL;
-						}
+						vPortFree(package.payload);
+						package.payload = NULL;
 					}
 				}
 
@@ -245,12 +245,10 @@ void transportHandler_TaskEntry(void* p)
 
 
 			/*------------------------ Send out all packages from the buffer which are in order ---------------------------*/
-			static uint16_t mostCurrentPayloadNr[NUMBER_OF_UARTS];
 			while(packageBuffer_getNextOrderedPackage(&receiveBuffer[deviceNr],&package))
 			{
 				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
 				{
-					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
 					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], package.payloadNr);
 					pushPayloadOut(&package);
 					vPortFree(package.payload);
@@ -267,93 +265,14 @@ void transportHandler_TaskEntry(void* p)
 			/*------------------------ Delete received Wireless-Packets out of Order if timeOut has occurred ---------------------------*/
 			while(packageBuffer_getNextPackageOlderThanTimeout(&receiveBuffer[deviceNr],&package,config.PayloadReorderingTimeout))
 			{
-				if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
-					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
-				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
+				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], package.payloadNr);
 				vPortFree(package.payload);
 				package.payload = NULL;
-//				if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
-//					mostCurrentPayloadNr[package.devNum] = package.payloadNr;
-//				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
-//				vPortFree(package.payload);
-//				package.payload = NULL;
-//				if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize)
-//				{
-//					//pushPayloadOut(&package);
-//					if(mostCurrentPayloadNr[package.devNum] < package.payloadNr)
-//						mostCurrentPayloadNr[package.devNum] = package.payloadNr;
-//					packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], mostCurrentPayloadNr[package.devNum]);
-//				//	popFromReceivedPayloadPacksQueue(deviceNr,&package);
-//					vPortFree(package.payload);
-//					package.payload = NULL;
-//				}
-//				else
-//				{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
-//					packageBuffer_put(&receiveBuffer[deviceNr],&package);
-//					vPortFree(package.payload);
-//					package.payload = NULL;
-//					break;
-//				}
 			}
-
-//#if 1
-//			/* push payload of wireless package out on device side */
-//			while(nofReceivedPayloadPacksInQueue(deviceNr) > 0)
-//			{
-//				peekAtReceivedPayloadPacksQueue(deviceNr, &package);
-//
-//				/* received Package is a Test-Package */
-//				if(package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE)
-//				{
-//					/* Copy payload out of testpackage */
-//					tTestPackagePayload payload;
-//					uint8_t *bytePtrPayload = (uint8_t*)&payload;
-//					for(int i = 0 ; i < sizeof(tTestPackagePayload) ; i++)
-//					{
-//						 bytePtrPayload[i]=package.payload[i];
-//					}
-//
-//					/* Return the Testpackage if this device is not the Sender */
-//					if(payload.returned && generateTestDataPackage(deviceNr, &package, true))
-//					{
-//						if(pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)
-//						{
-//							vPortFree(package.payload);
-//							package.payload = NULL;
-//						}
-//					}
-//					/* Test-Packet returned from receiver */
-//					else
-//					{
-//						// TODO Send packet time and queue length to networksMetrics
-//
-//
-//						vPortFree(package.payload);
-//						package.payload = NULL;
-//					}
-//				}
-//
-//				/* received Package is a Data-Package */
-//				else if(freeSpaceInTxByteQueue(MAX_14830_DEVICE_SIDE, package.devNum) >= package.payloadSize) /* check if enough space */
-//				{
-//					processReceivedPayload(&package);
-//					popFromReceivedPayloadPacksQueue(deviceNr, &package);
-//					vPortFree(package.payload);
-//					package.payload = NULL;
-//				}
-//			}
-
-			/* check if there is a timeout on the package reordering */
-//			if(config.PayloadNumberingProcessingMode[deviceNr] == PAYLOAD_REORDERING) /* package reordering configured for this device? */
-//			{
-//				while(pushOldestPackOutIfTimeout(deviceNr, false)) /* a timeout occured for oldest saved package? */
-//				{
-//					while(pushNextStoredPackOut(deviceNr)); /* push next packages out that are in order */
-//				}
-//			}
-//#endif
+			
+			/*------------------------ Delete received Wireless-Packets with old payload---------------------------*/
+			packageBuffer_freeOlderThanCurrentPackage(&receiveBuffer[deviceNr]);
 		}
-
 	}
 }
 
@@ -514,7 +433,7 @@ static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPac
 	/* prepare wireless package */
 	pAckPack->packType = PACK_TYPE_REC_ACKNOWLEDGE;
 	pAckPack->devNum = pReceivedDataPack->devNum;
-	pAckPack->packNr = ++sentAckNumTracker[pReceivedDataPack->devNum];
+	pAckPack->packNr = packageBuffer_getCurrentPayloadNR(&receiveBuffer[pReceivedDataPack->devNum]);
 	pAckPack->payloadNr = pReceivedDataPack->payloadNr;
 	pAckPack->payloadSize = sizeof(pAckPack->packNr);	/* as payload, the timestamp of the package to be acknowledged is saved */
 	/* get space for acknowladge payload (which consists of packNr of datapackage*/
@@ -565,9 +484,6 @@ static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage
 	tTestPackagePayload payload;
 	static const uint8_t packHeaderBuf[PACKAGE_HEADER_SIZE - 1] = { PACK_START, PACK_TYPE_NETWORK_TEST_PACKAGE, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-	uint16_t numberOfBytesInRxQueue = (uint16_t) numberOfBytesInRxByteQueue(MAX_14830_WIRELESS_SIDE, deviceNr);
-	uint16_t numberOfBytesInTxQueue = (uint16_t) numberOfBytesInTxByteQueue(MAX_14830_WIRELESS_SIDE, deviceNr);
-
 	if((deviceNr >= NUMBER_OF_UARTS) || (pPackage == NULL)) /* check validity of function parameters */
 	{
 		return false;
@@ -580,14 +496,6 @@ static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage
 	if(!returned)
 	{
 		payload.sendTimestamp = xTaskGetTickCount();
-		payload.longestQueue = 0;
-	}
-	else
-	{
-		if(numberOfBytesInRxQueue>numberOfBytesInTxQueue)
-			payload.longestQueue = numberOfBytesInRxQueue;
-		else
-			payload.longestQueue = numberOfBytesInTxQueue;
 	}
 
 	/* put together payload by allocating memory and copy data */
@@ -612,70 +520,6 @@ static bool generateTestDataPackage(tUartNr deviceNr, tWirelessPackage* pPackage
 	return true;
 }
 
-
-static bool processReceivedPayload(tWirelessPackage* pPackage)
-{
-//	char infoBuf[50];
-//	/* send data out at correct device side if packages received in order*/
-//	switch (config.PayloadNumberingProcessingMode[pPackage->devNum])
-//	{
-//	case PAYLOAD_NUMBER_IGNORED:
-//		pushPayloadOut(pPackage);
-//		sysTimeLastPushedOutPayload[pPackage->devNum] = pPackage->payloadNr; /* no need to keep track of package numbering, but done anyway here */
-//		break;
-//	case PAYLOAD_REORDERING:
-//		if (sysTimeLastPushedOutPayload[pPackage->devNum] <= pPackage->payloadNr) /* old package received */
-//		{
-//			break;
-//		}
-//		else if (sysTimeLastPushedOutPayload[pPackage->devNum] != pPackage->payloadNr + 1) /* package not received in order, saving to buffer needed */
-//
-//		{
-//			tWirelessPackage nextPack;
-//			/* package cant be stored, no empty space */
-//			if (nofReorderingPacksStored[pPackage->devNum]
-//					>= sizeof(reorderingPacksOccupiedAtIndex[pPackage->devNum])) {
-//				pushOldestPackOutIfTimeout(pPackage->devNum, true); /* force oldest package to be pushed out */
-//				while (pushNextStoredPackOut(pPackage->devNum))
-//					; /* push any other packages out that are now stored in order */
-//			}
-//			/* iterate through array to find an empty spot and store package there */
-//			for (int i = 0; i < sizeof(reorderingPacks[pPackage->devNum]); i++) {
-//				if (reorderingPacksOccupiedAtIndex[pPackage->devNum][i] != 1) /* spot empty? */
-//				{
-//					reorderingPacks[pPackage->devNum][i] = *pPackage; /* save package at new spot */
-//					reorderingPacksOccupiedAtIndex[pPackage->devNum][i] = 1; /*mark spot as occupied */
-//					nofReorderingPacksStored[pPackage->devNum]++;
-//					break; /* leave for loop */
-//				}
-//			}
-//		} else if (sysTimeLastPushedOutPayload[pPackage->devNum] == pPackage->payloadNr + 1) /* package received in order */
-//				{
-//			pushPayloadOut(pPackage); /* push out current package */
-//			/* payload is freed at the end of this function */
-//			sysTimeLastPushedOutPayload[pPackage->devNum] = pPackage->payloadNr; /* update package number tracker */
-//			while (pushNextStoredPackOut(pPackage->devNum))
-//				;
-//		}
-//		break;
-//	case ONLY_SEND_OUT_NEW_PAYLOAD:
-//		if (sysTimeLastPushedOutPayload[pPackage->devNum] < pPackage->payloadNr) /* package is newer than the last one pushed out */
-//		{
-//			pushPayloadOut(pPackage);
-//			sysTimeLastPushedOutPayload[pPackage->devNum] = pPackage->payloadNr;
-//		}
-//		break;
-//	default:
-//		UTIL1_strcpy(infoBuf, sizeof(infoBuf),"Error: Wrong configuration for PACK_NUMBERING_PROCESSING_MODE, value not in range\r\n");
-//		LedRed_On();
-//		pushMsgToShellQueue(infoBuf);
-//		pushPayloadOut(pPackage);
-//		sysTimeLastPushedOutPayload[pPackage->devNum] = pPackage->payloadNr; /* no need to keep track of package numbering, but done anyway here */
-//	}
-	return true;
-}
-
-
 /*!
 * \fn static void pushPayloadOut(tWirelessPackage package)
 * \brief Pushes the payload of a wireless package out on the correct device
@@ -694,103 +538,6 @@ static void pushPayloadOut(tWirelessPackage* pPackage)
 		}
 	}
 }
-
-
-/*!
-* \fn static void pushNextStoredPackOut(tUartNr uartNr)
-* \brief Iterates through the stored packages and pushes the next one out if it is the right order
-* \param uartNr: which device is affected
-*/
-//static bool pushNextStoredPackOut(tUartNr uartNr)
-//{
-//	tWirelessPackage nextPack;
-//	uint32_t nofReorderingPacksLeft = nofReorderingPacksStored[uartNr];
-//	for(int i=0; i<sizeof(reorderingPacks[uartNr]); i++)
-//	{
-//		if(reorderingPacksOccupiedAtIndex[uartNr][i])
-//		{
-//			nofReorderingPacksLeft--;
-//			nextPack = reorderingPacks[uartNr][i];
-//			if(nextPack.payloadNr == sysTimeLastPushedOutPayload[uartNr]+1)
-//			{
-//				pushPayloadOut(&nextPack);
-//				vPortFree(nextPack.payload);
-//				nextPack.payload = NULL;
-//				reorderingPacksOccupiedAtIndex[uartNr][i] = 0;
-//				nofReorderingPacksStored[uartNr]--;
-//				sysTimeLastPushedOutPayload[uartNr] = nextPack.payloadNr;
-//				return true;
-//			}
-//		}
-//		if(nofReorderingPacksLeft <= 0)
-//		{
-//			/* no need to iterate over the entire array if we know that there are no more packages stored */
-//			return false;
-//		}
-//	}
-//	return false;
-//}
-
-/*!
-* \fn static bool pushOldestPackOutIfTimeout(tUartNr uartNr, bool forced)
-* \brief Iterates through the receivedPackages array and pushes the package out with the
-* lowest sysTime if its timeout is done or if forced == true then the oldest package is pushed out
-* no matter if its timeout is done or not.
-* \param uartNr: specify which device side
-* \param forced: force oldest package out, no matter if timeout done or not -> freeing space
-*/
-//static bool pushOldestPackOutIfTimeout(tUartNr uartNr, bool forced)
-//{
-//	tWirelessPackage oldestPack;
-//	tWirelessPackage tmpPack;
-//	bool firstIteration = true;
-//	int oldestPackIndex = 0;
-//
-//	/* find package with the oldest timestamp (sysTime */
-//	for(int i=0; i<sizeof(reorderingPacks[uartNr]); i++)
-//	{
-//		if(reorderingPacksOccupiedAtIndex[uartNr][i]) /* there is a package stored at this index */
-//		{
-//			tmpPack = reorderingPacks[uartNr][i];
-//			if(firstIteration == true) /* on first iteration, initialize variable with any package */
-//			{
-//				oldestPack = tmpPack;
-//				oldestPackIndex = i;
-//				firstIteration = false; /* only initialize once */
-//			}
-//
-//			if(tmpPack.payloadNr < oldestPack.payloadNr) /* found older package than the previous one */
-//			{
-//				oldestPack = tmpPack;
-//				oldestPackIndex = i;
-//			}
-//		}
-//	}
-//
-//	if(firstIteration == true) /* the array is empty, no package found */
-//	{
-//		return false;
-//	}
-//
-//	if(forced || (oldestPack.timestampPackageReceived + config.PayloadReorderingTimeout[uartNr] > xTaskGetTickCount())) /* oldest package is timed out or needs to be pushed out */
-//	{
-//		pushPayloadOut(&oldestPack);
-//		vPortFree(oldestPack.payload);
-//		oldestPack.payload = NULL;
-//		reorderingPacksOccupiedAtIndex[uartNr][oldestPackIndex] = false;
-//		nofReorderingPacksStored[uartNr]--;
-//		sysTimeLastPushedOutPayload[uartNr] = oldestPack.payloadNr;
-//		return true;
-//	}
-//	else /* oldest package is not timed out */
-//	{
-//		return false;
-//	}
-//}
-
-
-
-
 
 /*!
 * \fn static ByseType_t pushToReadyToSendPacksQueue(tUartNr uartNr, tWirelessPackage* pPackage)
@@ -952,7 +699,7 @@ static void checkSessionNr(tWirelessPackage* pPackage)
 	{
 		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 		{
-			packageBuffer_free(receiveBuffer);
+			packageBuffer_free(&receiveBuffer[i]);
 		}
 
 		if(pPackage->packType == PACK_TYPE_DATA_PACKAGE)

@@ -107,7 +107,6 @@ typedef struct sWirelessPackage
 typedef struct sTestPackagePayload
 {
 	bool returned;						/* True if the Packed already got returend by the receiver */
-	uint16_t longestQueue;  			/* Holds value of the longes Byte-Queue of a wireless-link */
 	uint16_t sendTimestamp; 			/* Timestamp: Moment of sending the Test-Packet */
 } tTestPackagePayload;
 

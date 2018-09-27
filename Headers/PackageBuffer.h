@@ -44,6 +44,13 @@ void packageBuffer_init(tPackageBuffer* buffer);
 bool packageBuffer_free(tPackageBuffer* buffer);
 
 /*!
+* \fn bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer)
+* \brief Frees all packets in the buffer with a lower or equal payloadNr as the current payloadNr 
+* \return true if successful
+*/
+bool packageBuffer_freeOlderThanCurrentPackage(tPackageBuffer* buffer);
+
+/*!
 * \fn bool packageBuffer_put(tWirelessPackage* packet);
 * \brief Copies the packet into the buffer. Payload dosnt get Copied!
 * \return true if successful
@@ -121,4 +128,9 @@ bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer,siz
 */
 void packageBuffer_setCurrentPayloadNR(tPackageBuffer* buffer,uint16_t payloadNr);
 
+/*!
+* \fn uint16_t packageBuffer_getCurrentPayloadNR(tPackageBuffer* buffer);
+* \brief returns the last payloadNr which was received
+*/
+uint16_t packageBuffer_getCurrentPayloadNR(tPackageBuffer* buffer);
 #endif /* HEADERS_PACKAGEBUFFER_H_ */
