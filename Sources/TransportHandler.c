@@ -83,7 +83,7 @@ void transportHandler_TaskEntry(void* p)
 		{
 
 			/*------------------------ Generate TestPackets if requested ---------------------------*/
-			if (popFromRequestNewTestPacketPairQueue(&request) == pdTRUE)
+			if (popFromRequestNewTestPacketPairQueue(&request) == pdTRUE && config.UseProbingPacksWlConn[deviceNr] == true)
 			{
 				sendOutTestPackagePair(deviceNr, &package);
 			}
@@ -224,7 +224,7 @@ void transportHandler_TaskEntry(void* p)
 						}
 						payload.sendTimestamp =  xTaskGetTickCount();
 						//Copy payload back into testpackage
-						*bytePtrPayload = (uint8_t*) &payload;
+						bytePtrPayload = (uint8_t*) &payload;
 						for (int i = 0; i < sizeof(tTestPackagePayload); i++)
 						{
 							package.payload[i] = bytePtrPayload[i];

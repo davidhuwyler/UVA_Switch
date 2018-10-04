@@ -36,6 +36,9 @@
 #define NOF_PACKS_FOR_PACKET_LOSS_RATIO     		20
 
 
+#define RRT_FILTER_PARAM 0.8
+#define SBPP_FILTER_PARAM 0.8
+
 /*!
 * \fn void networkMetrics_TaskEntry(void)
 * \brief Task computes the network metrics used for routing

@@ -23,6 +23,8 @@ typedef struct Configurations {
    int UsualPacketSizeDeviceConn[NUMBER_OF_UARTS];
    int PackageGenMaxTimeout[NUMBER_OF_UARTS];
    int PayloadReorderingTimeout;
+   bool UseProbingPacksWlConn[NUMBER_OF_UARTS];
+   int CostPerPacketMetric[NUMBER_OF_UARTS];
    bool UseGolayPerWlConn[NUMBER_OF_UARTS];
    /* SoftwareConfiguration */
    bool TestHwLoopbackOnly;

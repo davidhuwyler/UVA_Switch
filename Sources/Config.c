@@ -148,6 +148,14 @@ bool readConfig(void)
   	/* PACK_REORDERING_TIMEOUT */
   	config.PayloadReorderingTimeout = MINI_ini_getl("TransmissionConfiguration", "PAYLOAD_REORDERING_TIMEOUT",  DEFAULT_INT, "serialSwitch_Config.ini");
 
+  	/* USE_PROBING_PACKS  */
+  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USE_PROBING_PACKS",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+  	csvToBool(copiedCsv, config.UseProbingPacksWlConn);
+
+  	/* COST_PER_PACKET_METRIC  */
+  	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "COST_PER_PACKET_METRIC",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+  	csvToInt(copiedCsv, config.CostPerPacketMetric);
+
   	/* USE_GOLAY_ERROR_CORRECTING_CODE */
   	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USE_GOLAY_ERROR_CORRECTING_CODE",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
   	csvToBool(copiedCsv, config.UseGolayPerWlConn);

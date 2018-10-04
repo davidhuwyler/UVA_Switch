@@ -207,10 +207,12 @@ bool packageBuffer_getNextOrderedPackage(tPackageBuffer* buffer, tWirelessPackag
 			buffer->indexIsEmpty[indexOfNextOrderedPackage] = true;
 			buffer->freeSpace ++;
 			buffer->count --;
-			bool result = copyPackage(&buffer->packageArray[indexOfNextOrderedPackage],packet);
-			vPortFree(buffer->packageArray[indexOfNextOrderedPackage].payload);
-			buffer->packageArray[indexOfNextOrderedPackage].payload = NULL;
-			return result;
+			//bool result = copyPackage(&buffer->packageArray[indexOfNextOrderedPackage],packet);
+			//vPortFree(buffer->packageArray[indexOfNextOrderedPackage].payload);
+			//buffer->packageArray[indexOfNextOrderedPackage].payload = NULL;
+
+			*packet = buffer->packageArray[indexOfNextOrderedPackage];
+			return true;
 		}
 	}
 	return false;
@@ -235,10 +237,12 @@ bool packageBuffer_getNextPackageOlderThanTimeout(tPackageBuffer* buffer, tWirel
 				buffer->indexIsEmpty[i] = true;
 				buffer->freeSpace ++;
 				buffer->count --;
-				bool result = copyPackage(&buffer->packageArray[i],packet);
-				vPortFree(buffer->packageArray[i].payload);
-				buffer->packageArray[i].payload = NULL;
-				return result;
+				//bool result = copyPackage(&buffer->packageArray[i],packet);
+				//vPortFree(buffer->packageArray[i].payload);
+				//buffer->packageArray[i].payload = NULL;
+
+				*packet = buffer->packageArray[i];
+				return true;
 			}
 		}
 	}
@@ -265,10 +269,12 @@ bool packageBuffer_getNextPackageOlderThanTimeoutWithVar(tPackageBuffer* buffer,
 				*variable = buffer->variable[i];
 				buffer->freeSpace ++;
 				buffer->count --;
-				bool result = copyPackage(&buffer->packageArray[i],packet);
-				vPortFree(buffer->packageArray[i].payload);
-				buffer->packageArray[i].payload = NULL;
-				return result;
+				//bool result = copyPackage(&buffer->packageArray[i],packet);
+				//vPortFree(buffer->packageArray[i].payload);
+				//buffer->packageArray[i].payload = NULL;
+
+				*packet = buffer->packageArray[i];
+				return true;
 			}
 		}
 	}
@@ -293,10 +299,12 @@ bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* pa
 			buffer->indexIsEmpty[indexOfNextOldestPackage] = true;
 			buffer->freeSpace ++;
 			buffer->count --;
-			bool result = copyPackage(&buffer->packageArray[indexOfNextOldestPackage],packet);
-			vPortFree(buffer->packageArray[indexOfNextOldestPackage].payload);
-			buffer->packageArray[indexOfNextOldestPackage].payload = NULL;
-			return result;
+			//bool result = copyPackage(&buffer->packageArray[indexOfNextOldestPackage],packet);
+			//vPortFree(buffer->packageArray[indexOfNextOldestPackage].payload);
+			//buffer->packageArray[indexOfNextOldestPackage].payload = NULL;
+
+			*packet = buffer->packageArray[indexOfNextOldestPackage];
+			return true;
 		}
 	}
 	return false;
@@ -322,10 +330,12 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 				buffer->indexIsEmpty[i] = true;
 				buffer->freeSpace ++;
 				buffer->count --;
-				bool result = copyPackage(&buffer->packageArray[i],packet);
-				vPortFree(buffer->packageArray[i].payload);
-				buffer->packageArray[i].payload = NULL;
-				return result;
+				//bool result = copyPackage(&buffer->packageArray[i],packet);
+				//vPortFree(buffer->packageArray[i].payload);
+				//buffer->packageArray[i].payload = NULL;
+
+				*packet = buffer->packageArray[i];
+				return true;
 			}
 		}
 	}
