@@ -19,9 +19,10 @@ static xQueueHandle queueTestPacketResults; /* Incoming TestPacketPair Results f
 static const char* queueNameRequestNewTestPacketPair = {"RequestNewTestPacketPair"};
 static const char* queueNameTestPacketResults = {"TestPacketResults"};
 static tPackageBuffer testPackageBuffer[NUMBER_OF_UARTS];
-static bool packetLossIndicatorForPLR[NOF_PACKS_FOR_PACKET_LOSS_RATIO];
-static uint16_t indexOfPLRarray = 0;
-static uint16_t RTTraw[NUMBER_OF_UARTS], RTTfiltered[NUMBER_OF_UARTS], SBPPraw[NUMBER_OF_UARTS], SBPPfiltered[NUMBER_OF_UARTS], CPP[NUMBER_OF_UARTS], PLR[NUMBER_OF_UARTS];
+static bool packetLossIndicatorForPLR[NUMBER_OF_UARTS][NOF_PACKS_FOR_PACKET_LOSS_RATIO];
+static uint16_t indexOfPLRarray[NUMBER_OF_UARTS];
+static uint16_t RTTraw[NUMBER_OF_UARTS], RTTfiltered[NUMBER_OF_UARTS], SBPPraw[NUMBER_OF_UARTS], SBPPfiltered[NUMBER_OF_UARTS], CPP[NUMBER_OF_UARTS], PLR[NUMBER_OF_UARTS],Q[NUMBER_OF_UARTS];
+static uint16_t timeStampLastValidMetric[NUMBER_OF_UARTS];
 
 
 /* prototypes of local functions */
@@ -32,10 +33,12 @@ static void copyTestPackagePayload(tWirelessPackage* testPackage, tTestPackagePa
 static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackage* sentPack2, tWirelessPackage* receivedPack1, tWirelessPackage* receivedPack2,uint16_t deviceID, uint16_t startPairNr);
 static bool calculateMetric_RoundTripTime(uint16_t* roundTripTime, tWirelessPackage* sentPack,tWirelessPackage* receivedPack);
 static bool calculateMetric_SenderBasedPacketPair(uint16_t* senderBasedPacketPair, tWirelessPackage* firstReceivedPackage,tWirelessPackage* secondReceivedPackage);
-static bool calculateMetric_PacketLossRatio(uint16_t* packetLossRatio);
-static void updatePacketLossRatioPacketNOK(void);
-static void updatePacketLossRatioPacketOK(void);
+static bool calculateMetric_PacketLossRatio(uint16_t* packetLossRatio, uint8_t wirelessNr);
+static void updatePacketLossRatioPacketNOK(uint8_t wirelessNr);
+static void updatePacketLossRatioPacketOK(uint8_t wirelessNr);
+static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uint16_t* Q);
 static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a);
+uint16_t getTimespan(uint16_t timestamp);
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -68,7 +71,7 @@ void networkMetrics_TaskEntry(void* p)
 				tTestPackagePayload payload;
 				copyTestPackagePayload(&package,&payload);
 				if(payload.returned)
-					updatePacketLossRatioPacketOK();
+					updatePacketLossRatioPacketOK(package.devNum);
 
 
 				/* Delete the test packet from the queue */
@@ -105,9 +108,13 @@ void networkMetrics_TaskInit(void)
 */
 static void calculateMetrics(void)
 {
+	char infoBuf[100];
+
 	static uint16_t currentPairNr[NUMBER_OF_UARTS] = {1,1,1,1};
+
 	for(int wirelessLink = 0 ;  wirelessLink < NUMBER_OF_UARTS ; wirelessLink ++)
 	{
+		bool foundPair[NUMBER_OF_UARTS] = {false,false,false,false};
 
 		/*            					  -------------      -------------
 		 * 	 Sender ---------->  		 | sentPack1   |    | sentPack2   |   	----------> Receiver
@@ -126,10 +133,14 @@ static void calculateMetrics(void)
 
 		for(int i = currentPairNr[wirelessLink] ;  i <= packageBuffer_getCurrentPayloadNR(&testPackageBuffer[wirelessLink]) ; i++)
 		{
+
+
+			//Found correct packet pair in buffer
 			if(findPacketPairInBuffer(&sentPack1 , &sentPack2, &receivedPack1, &receivedPack2,wirelessLink,i))
 			{
-				uint16_t rrt,sbpp,plr;
-				char infoBuf[100];
+
+				foundPair[wirelessLink] = true;
+				timeStampLastValidMetric[wirelessLink] = xTaskGetTickCount();
 
 				XF1_xsprintf(infoBuf, "----------- WrelessLink%u Metrics -----------\r\n",wirelessLink);
 				pushMsgToShellQueue(infoBuf);
@@ -148,11 +159,12 @@ static void calculateMetrics(void)
 				XF1_xsprintf(infoBuf, "Raw SBPP = %u Byte/s \t\tFiltered SBPP = %u\r\n", SBPPraw[wirelessLink],SBPPfiltered[wirelessLink]);
 				pushMsgToShellQueue(infoBuf);
 
-				calculateMetric_PacketLossRatio(&PLR[wirelessLink]);
+				calculateMetric_PacketLossRatio(&PLR[wirelessLink], wirelessLink);
 				XF1_xsprintf(infoBuf, "PLR = %u %% \r\n", PLR[wirelessLink]);
 				pushMsgToShellQueue(infoBuf);
 
-				XF1_xsprintf(infoBuf, "CPP = %u  \r\n", config.CostPerPacketMetric[wirelessLink]);
+				CPP[wirelessLink] = config.CostPerPacketMetric[wirelessLink];
+				XF1_xsprintf(infoBuf, "CPP = %u  \r\n", CPP[wirelessLink]);
 				pushMsgToShellQueue(infoBuf);
 
 				vPortFree(sentPack1.payload);
@@ -166,6 +178,16 @@ static void calculateMetrics(void)
 			}
 		}
 
+		if(foundPair[wirelessLink] == false) //found no valid packet pair...
+		{
+			if(RTTraw[wirelessLink]<TIMEOUT_TEST_PACKET_RETURN)
+				RTTraw[wirelessLink] = getTimespan(timeStampLastValidMetric[wirelessLink]);
+			exponentialFilter(&RTTfiltered[wirelessLink],&RTTraw[wirelessLink],RRT_FILTER_PARAM);
+
+
+			SBPPraw[wirelessLink] = 0;
+			exponentialFilter(&SBPPfiltered[wirelessLink],&SBPPraw[wirelessLink],SBPP_FILTER_PARAM);
+		}
 
 		while(packageBuffer_getNextPackageOlderThanTimeout(&testPackageBuffer[wirelessLink],&tempPack,TIMEOUT_TEST_PACKET_RETURN))
 		{
@@ -173,7 +195,7 @@ static void calculateMetrics(void)
 			tTestPackagePayload payload;
 			copyTestPackagePayload(&tempPack,&payload);
 			if(!payload.returned)
-				updatePacketLossRatioPacketNOK();
+				updatePacketLossRatioPacketNOK(wirelessLink);
 
 			if(currentPairNr[wirelessLink] < tempPack.payloadNr)
 				currentPairNr[wirelessLink] = tempPack.payloadNr;
@@ -181,8 +203,19 @@ static void calculateMetrics(void)
 			tempPack.payload = NULL;
 		}
 
-		packageBuffer_freeOlderThanCurrentPackage(&testPackageBuffer[wirelessLink]);
+		//packageBuffer_freeOlderThanCurrentPackage(&testPackageBuffer[wirelessLink]);
 	}
+
+	for(int wirelessLink = 0 ;  wirelessLink < NUMBER_OF_UARTS ; wirelessLink ++)
+	{
+		calculateMetric_PacketLossRatio(&PLR[wirelessLink], wirelessLink);
+
+		calculateQ(SBPPfiltered[wirelessLink],RTTfiltered[wirelessLink],PLR[wirelessLink],CPP[wirelessLink],&Q[wirelessLink]);
+		XF1_xsprintf(infoBuf, "Q%u = %u  \r\n", wirelessLink,Q[wirelessLink]);
+		pushMsgToShellQueue(infoBuf);
+	}
+
+
 }
 
 /*!
@@ -234,7 +267,7 @@ static bool calculateMetric_SenderBasedPacketPair(uint16_t* senderBasedPacketPai
 	uint16_t timeDelayBetwennReceivedPackages;
 
 	if(payloadFirstReceivedPackage.sendTimestamp == payloadSecondReceivedPackage.sendTimestamp)
-		timeDelayBetwennReceivedPackages = 1;
+		return false;
 	else if(payloadFirstReceivedPackage.sendTimestamp <= payloadSecondReceivedPackage.sendTimestamp)
 		timeDelayBetwennReceivedPackages = payloadSecondReceivedPackage.sendTimestamp - payloadFirstReceivedPackage.sendTimestamp;
 	else
@@ -249,39 +282,77 @@ static bool calculateMetric_SenderBasedPacketPair(uint16_t* senderBasedPacketPai
 * \fn bool calculateMetric_PacketLossRatio(uint16_t* packetLossRatio)
 * \brief calculates the PacketLossRatio (PLR) Metric. Number (0...100 [%]) which indicates how many packets that are lost
 */
-static bool calculateMetric_PacketLossRatio(uint16_t* packetLossRatio)
+static bool calculateMetric_PacketLossRatio(uint16_t* packetLossRatio,uint8_t wirelessNr)
 {
 	uint16_t nofLostPacks = 0;
 	for(int i = 0 ; i < NOF_PACKS_FOR_PACKET_LOSS_RATIO ; i++)
 	{
-		if(packetLossIndicatorForPLR[i])
+		if(packetLossIndicatorForPLR[wirelessNr][i])
 			nofLostPacks ++;
 	}
 
 
-	*packetLossRatio = 100 - ((100/NOF_PACKS_FOR_PACKET_LOSS_RATIO) * nofLostPacks);
+	*packetLossRatio = (100/NOF_PACKS_FOR_PACKET_LOSS_RATIO) * nofLostPacks;
 	return true;
 }
 
-static void updatePacketLossRatioPacketNOK(void)
+static void updatePacketLossRatioPacketNOK(uint8_t wirelessNr)
 {
-	packetLossIndicatorForPLR[indexOfPLRarray] = true;
-	indexOfPLRarray ++;
-	indexOfPLRarray %= NOF_PACKS_FOR_PACKET_LOSS_RATIO;
+	packetLossIndicatorForPLR[wirelessNr][indexOfPLRarray[wirelessNr]] = true;
+	indexOfPLRarray[wirelessNr] ++;
+	indexOfPLRarray[wirelessNr] %= NOF_PACKS_FOR_PACKET_LOSS_RATIO;
 }
 
 /*!
 * \fn bool static void updatePacketLossRatio(void)
 * \brief updates the ringbuffer for the packet loss Ratio metric. Needs to be called at every insertion of a received test packet into the packet buffer
 */
-static void updatePacketLossRatioPacketOK(void)
+static void updatePacketLossRatioPacketOK(uint8_t wirelessNr)
 {
-	packetLossIndicatorForPLR[indexOfPLRarray] = false;
-	indexOfPLRarray ++;
-	indexOfPLRarray %= NOF_PACKS_FOR_PACKET_LOSS_RATIO;
+	packetLossIndicatorForPLR[wirelessNr][indexOfPLRarray[wirelessNr]] = false;
+	indexOfPLRarray[wirelessNr] ++;
+	indexOfPLRarray[wirelessNr] %= NOF_PACKS_FOR_PACKET_LOSS_RATIO;
 }
 
+/*!
+* \fn void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uint16_t* Q)
+* \brief calculates the quality Factor out of the metrics
+*/
+static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uint16_t* Q)
+{
 
+	SBPP = SBPP * SCALING_FACTOR_SBPP_FOR_Q;
+	RTT = RTT / SCALING_DIVIDER_RTT_FOR_Q;
+	PLR = PLR / SCALING_DIVIDER_PLR_FOR_Q;
+
+	if(PLR == 0)
+		PLR = 1;
+
+	*Q = SBPP / (RTT*PLR*CPP);
+}
+
+/*!
+* \fn uint16_t networkMetrics_getResendDelayWirelessConn(void)
+* \brief calculates the delay for resending packets according to the RTT Metric.
+*  if test-packets are disabled, the configured value from the config file RESEND_DELAY_WIRELESS_CONN
+*  is returned.
+*/
+uint16_t networkMetrics_getResendDelayWirelessConn(void)
+{
+	if(config.UseProbingPacksWlConn[0] || config.UseProbingPacksWlConn[1] || config.UseProbingPacksWlConn[2] || config.UseProbingPacksWlConn[3])
+	{
+		uint16_t longestRTT = 0;
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		{
+			if(Q[i] != 0  && longestRTT < RTTfiltered[i])
+				longestRTT = RTTfiltered[i];
+		}
+		return longestRTT * 2;
+	}
+	else
+		return config.ResendDelayWirelessConn;
+
+}
 
 /*!
 * \fn bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackage* sentPack2, tWirelessPackage* receivedPack1, tWirelessPackage* receivedPack2,uint16_t deviceID, uint16_t startPairNr)
@@ -484,6 +555,17 @@ static void copyTestPackagePayload(tWirelessPackage* testPackage, tTestPackagePa
 		bytePtrPayload[i] = testPackage->payload[i];
 	}
 }
+
+uint16_t getTimespan(uint16_t timestamp)
+{
+	uint16_t osTick = xTaskGetTickCount();
+
+	if(osTick >= timestamp)
+		return(osTick-timestamp);
+	else
+		return (0xFFFF-osTick) + timestamp;
+}
+
 
 /*!
 * \fn void initnetworkMetricsQueues(void)

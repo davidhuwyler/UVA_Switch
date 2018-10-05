@@ -36,8 +36,12 @@
 #define NOF_PACKS_FOR_PACKET_LOSS_RATIO     		20
 
 
-#define RRT_FILTER_PARAM 0.8
-#define SBPP_FILTER_PARAM 0.8
+#define RRT_FILTER_PARAM 0.9
+#define SBPP_FILTER_PARAM 0.9
+
+#define SCALING_FACTOR_SBPP_FOR_Q 2
+#define SCALING_DIVIDER_RTT_FOR_Q 5
+#define SCALING_DIVIDER_PLR_FOR_Q 5
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -50,6 +54,14 @@ void networkMetrics_TaskEntry(void* p);
 * \brief
 */
 void networkMetrics_TaskInit(void);
+
+/*!
+* \fn uint16_t networkMetrics_getResendDelayWirelessConn(void)
+* \brief calculates the delay for resending packets according to the RTT Metric.
+*  if test-packets are disabled, the configured value from the config file RESEND_DELAY_WIRELESS_CONN
+*  is returned.
+*/
+uint16_t networkMetrics_getResendDelayWirelessConn(void);
 
 /*!
 * \fn ByseType_t popFromRequestNewTestPacketPairQueue(bool* request)

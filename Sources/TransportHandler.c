@@ -244,7 +244,7 @@ void transportHandler_TaskEntry(void* p)
 
 			/*------------------------ Resend Unacknowledged Wireless Packages ---------------------------*/
 			uint16_t numberOfResendAttempts;
-			while(packageBuffer_getNextPackageOlderThanTimeoutWithVar(&sendBuffer[deviceNr],&package,&numberOfResendAttempts,config.ResendDelayWirelessConn))
+			while(packageBuffer_getNextPackageOlderThanTimeoutWithVar(&sendBuffer[deviceNr],&package,&numberOfResendAttempts,networkMetrics_getResendDelayWirelessConn()))
 			{
 				if(numberOfResendAttempts<config.ResendCountWirelessConn)  //Resend
 				{
