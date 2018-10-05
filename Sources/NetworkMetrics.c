@@ -22,8 +22,11 @@ static tPackageBuffer testPackageBuffer[NUMBER_OF_UARTS];
 static bool packetLossIndicatorForPLR[NUMBER_OF_UARTS][NOF_PACKS_FOR_PACKET_LOSS_RATIO];
 static uint16_t indexOfPLRarray[NUMBER_OF_UARTS];
 static uint16_t RTTraw[NUMBER_OF_UARTS], RTTfiltered[NUMBER_OF_UARTS], SBPPraw[NUMBER_OF_UARTS], SBPPfiltered[NUMBER_OF_UARTS], CPP[NUMBER_OF_UARTS], PLR[NUMBER_OF_UARTS],Q[NUMBER_OF_UARTS];
-static uint16_t timeStampLastValidMetric[NUMBER_OF_UARTS];
 
+static uint16_t nofTransmittedBytesSinceLastTaskCall[NUMBER_OF_UARTS];
+static bool wirelessLinksToUse[NUMBER_OF_UARTS];
+
+static SemaphoreHandle_t metricsSemaphore;
 
 /* prototypes of local functions */
 static void initnetworkMetricsQueues(void);
@@ -39,6 +42,8 @@ static void updatePacketLossRatioPacketOK(uint8_t wirelessNr);
 static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uint16_t* Q);
 static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a);
 uint16_t getTimespan(uint16_t timestamp);
+static void updateLoadBalancingVariables();
+static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes);
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -80,10 +85,10 @@ void networkMetrics_TaskEntry(void* p)
 				vPortFree(package.payload);
 				package.payload = NULL;
 			}
-
 		}
-
 		calculateMetrics();
+
+		updateLoadBalancingVariables();
 	}
 }
 
@@ -100,6 +105,7 @@ void networkMetrics_TaskInit(void)
 		packageBuffer_setCurrentPayloadNR(&testPackageBuffer[i],1);
 	}
 
+	 metricsSemaphore = xSemaphoreCreateBinary();
 }
 
 /*!
@@ -109,7 +115,7 @@ void networkMetrics_TaskInit(void)
 static void calculateMetrics(void)
 {
 	char infoBuf[100];
-
+	static uint16_t timeStampLastValidMetric[NUMBER_OF_UARTS];
 	static uint16_t currentPairNr[NUMBER_OF_UARTS] = {1,1,1,1};
 
 	for(int wirelessLink = 0 ;  wirelessLink < NUMBER_OF_UARTS ; wirelessLink ++)
@@ -133,8 +139,6 @@ static void calculateMetrics(void)
 
 		for(int i = currentPairNr[wirelessLink] ;  i <= packageBuffer_getCurrentPayloadNR(&testPackageBuffer[wirelessLink]) ; i++)
 		{
-
-
 			//Found correct packet pair in buffer
 			if(findPacketPairInBuffer(&sentPack1 , &sentPack2, &receivedPack1, &receivedPack2,wirelessLink,i))
 			{
@@ -142,30 +146,14 @@ static void calculateMetrics(void)
 				foundPair[wirelessLink] = true;
 				timeStampLastValidMetric[wirelessLink] = xTaskGetTickCount();
 
-				XF1_xsprintf(infoBuf, "----------- WrelessLink%u Metrics -----------\r\n",wirelessLink);
-				pushMsgToShellQueue(infoBuf);
-
 				calculateMetric_RoundTripTime(&RTTraw[wirelessLink],&sentPack1,&receivedPack1);
 				exponentialFilter(&RTTfiltered[wirelessLink],&RTTraw[wirelessLink],RRT_FILTER_PARAM);
-				XF1_xsprintf(infoBuf, "Raw RRT Packet1 = %u ms \tFiltered RRT = %u ms\r\n", RTTraw[wirelessLink], RTTfiltered[wirelessLink]);
-				pushMsgToShellQueue(infoBuf);
 				calculateMetric_RoundTripTime(&RTTraw[wirelessLink],&sentPack2,&receivedPack2);
 				exponentialFilter(&RTTfiltered[wirelessLink],&RTTraw[wirelessLink],RRT_FILTER_PARAM);
-				XF1_xsprintf(infoBuf, "Raw RRT Packet2 = %u ms \tFiltered RRT = %u ms\r\n", RTTraw[wirelessLink], RTTfiltered[wirelessLink]);
-				pushMsgToShellQueue(infoBuf);
-
 				calculateMetric_SenderBasedPacketPair(&SBPPraw[wirelessLink],&receivedPack1,&receivedPack2);
 				exponentialFilter(&SBPPfiltered[wirelessLink],&SBPPraw[wirelessLink],SBPP_FILTER_PARAM);
-				XF1_xsprintf(infoBuf, "Raw SBPP = %u Byte/s \t\tFiltered SBPP = %u\r\n", SBPPraw[wirelessLink],SBPPfiltered[wirelessLink]);
-				pushMsgToShellQueue(infoBuf);
-
 				calculateMetric_PacketLossRatio(&PLR[wirelessLink], wirelessLink);
-				XF1_xsprintf(infoBuf, "PLR = %u %% \r\n", PLR[wirelessLink]);
-				pushMsgToShellQueue(infoBuf);
-
 				CPP[wirelessLink] = config.CostPerPacketMetric[wirelessLink];
-				XF1_xsprintf(infoBuf, "CPP = %u  \r\n", CPP[wirelessLink]);
-				pushMsgToShellQueue(infoBuf);
 
 				vPortFree(sentPack1.payload);
 				sentPack1.payload = NULL;
@@ -175,6 +163,20 @@ static void calculateMetrics(void)
 				receivedPack1.payload = NULL;
 				vPortFree(receivedPack2.payload);
 				receivedPack2.payload = NULL;
+
+#ifdef PRINT_METRICS
+				XF1_xsprintf(infoBuf, "----------- WrelessLink%u Metrics -----------\r\n",wirelessLink);
+				pushMsgToShellQueue(infoBuf);
+				XF1_xsprintf(infoBuf, "Raw RRT = %u ms \tFiltered RRT = %u ms\r\n", RTTraw[wirelessLink], RTTfiltered[wirelessLink]);
+				pushMsgToShellQueue(infoBuf);
+				XF1_xsprintf(infoBuf, "Raw SBPP = %u Byte/s \t\tFiltered SBPP = %u\r\n", SBPPraw[wirelessLink],SBPPfiltered[wirelessLink]);
+				pushMsgToShellQueue(infoBuf);
+				XF1_xsprintf(infoBuf, "PLR = %u %% \r\n", PLR[wirelessLink]);
+				pushMsgToShellQueue(infoBuf);
+				XF1_xsprintf(infoBuf, "CPP = %u  \r\n", CPP[wirelessLink]);
+				pushMsgToShellQueue(infoBuf);
+#endif
+
 			}
 		}
 
@@ -183,7 +185,6 @@ static void calculateMetrics(void)
 			if(RTTraw[wirelessLink]<TIMEOUT_TEST_PACKET_RETURN)
 				RTTraw[wirelessLink] = getTimespan(timeStampLastValidMetric[wirelessLink]);
 			exponentialFilter(&RTTfiltered[wirelessLink],&RTTraw[wirelessLink],RRT_FILTER_PARAM);
-
 
 			SBPPraw[wirelessLink] = 0;
 			exponentialFilter(&SBPPfiltered[wirelessLink],&SBPPraw[wirelessLink],SBPP_FILTER_PARAM);
@@ -211,12 +212,133 @@ static void calculateMetrics(void)
 		calculateMetric_PacketLossRatio(&PLR[wirelessLink], wirelessLink);
 
 		calculateQ(SBPPfiltered[wirelessLink],RTTfiltered[wirelessLink],PLR[wirelessLink],CPP[wirelessLink],&Q[wirelessLink]);
+#if defined(PRINT_METRICS) || defined(PRINT_Q)
 		XF1_xsprintf(infoBuf, "Q%u = %u  \r\n", wirelessLink,Q[wirelessLink]);
 		pushMsgToShellQueue(infoBuf);
+#endif
 	}
 
 
 }
+
+static uint16_t nofTransmittedBytesSinceLastTaskCall[NUMBER_OF_UARTS];
+static bool wirelessLinksToUse[NUMBER_OF_UARTS];
+
+static void updateLoadBalancingVariables()
+{
+	uint16_t sortedQlist[4];
+	uint8_t sortedQindexes[4];
+
+	getSortedQlist(sortedQlist,sortedQindexes);
+
+	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+
+	//Search for the channel with higest q and lower Bandwith usage than BANDWITH_USAGE_PER_CHANNEL
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		if(sortedQindexes[i] != NUMBER_OF_UARTS &&
+		  ((nofTransmittedBytesSinceLastTaskCall[sortedQindexes[i]]*1000/config.NetworkMetricsTaskInterval) < (BANDWITH_USAGE_PER_CHANNEL*SBPPfiltered[sortedQindexes[i]])))
+		{
+			for(int j = 0 ; j < NUMBER_OF_UARTS ; j++)
+			{
+				if(j == sortedQindexes[i])
+					wirelessLinksToUse[j] = true;
+				else
+					wirelessLinksToUse[j] = false;
+			}
+			break;
+		}
+	}
+
+	//No channel Was found with enough BW & High Q: Take channel with higest Q
+	if(!wirelessLinksToUse[0] && !wirelessLinksToUse[1] && !wirelessLinksToUse[2] && !wirelessLinksToUse[3])
+	{
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		{
+			if(i == sortedQindexes[0])
+				wirelessLinksToUse[i] = true;
+			else
+				wirelessLinksToUse[i] = false;
+		}
+	}
+
+	//Still no channel found: Use all!
+	if(!wirelessLinksToUse[0] && !wirelessLinksToUse[1] && !wirelessLinksToUse[2] && !wirelessLinksToUse[3])
+	{
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		{
+			if(i == sortedQindexes[0])
+				wirelessLinksToUse[i] = true;
+		}
+	}
+
+	//Clear Byte Counters
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		nofTransmittedBytesSinceLastTaskCall[i] = 0;
+	}
+
+	FRTOS_xSemaphoreGive(metricsSemaphore);
+
+
+
+	//print results
+#ifdef PRINT_WIRELESSLINK_TO_USE
+	char infoBuf[100];
+	XF1_xsprintf(infoBuf, "WirelessLinksToUse: ");
+	pushMsgToShellQueue(infoBuf);
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		XF1_xsprintf(infoBuf, " %i:%u ",i+1,wirelessLinksToUse[i]);
+		pushMsgToShellQueue(infoBuf);
+	}
+	XF1_xsprintf(infoBuf, "\r\n");
+	pushMsgToShellQueue(infoBuf);
+#endif
+}
+
+static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes)
+{
+	uint16_t unorderedQlist[4];
+
+	//Copy Q List
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i ++)
+	{
+		unorderedQlist[i] = Q[i];
+	}
+
+	//Sort list -> Index 0 = higest q
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i ++)
+	{
+		uint8_t higestQindex = NUMBER_OF_UARTS;
+		for(int j = 0; j< NUMBER_OF_UARTS ; j++)
+		{
+			if(unorderedQlist[j]>unorderedQlist[higestQindex])
+			{
+				higestQindex = j;
+			}
+		}
+		sortedQlist[i] = unorderedQlist[higestQindex];
+		sortedQindexes[i]=higestQindex;
+		unorderedQlist[higestQindex] = 0;
+	}
+}
+
+
+void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam)
+{
+	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+	for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+	{
+		if(wirelessLinksToUse[i])
+		{
+			nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
+		}
+		wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
+	}
+	FRTOS_xSemaphoreGive(metricsSemaphore);
+}
+
 
 /*!
 * \fn void exponentialFilter(uint16_t y_t, uint16_t y_t1, uint16_t x_t, float a)
@@ -267,7 +389,12 @@ static bool calculateMetric_SenderBasedPacketPair(uint16_t* senderBasedPacketPai
 	uint16_t timeDelayBetwennReceivedPackages;
 
 	if(payloadFirstReceivedPackage.sendTimestamp == payloadSecondReceivedPackage.sendTimestamp)
-		return false;
+	{
+		if(*senderBasedPacketPair !=0)
+			return false;
+		else
+			timeDelayBetwennReceivedPackages = 5;
+	}
 	else if(payloadFirstReceivedPackage.sendTimestamp <= payloadSecondReceivedPackage.sendTimestamp)
 		timeDelayBetwennReceivedPackages = payloadSecondReceivedPackage.sendTimestamp - payloadFirstReceivedPackage.sendTimestamp;
 	else

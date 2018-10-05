@@ -16,7 +16,7 @@
 /*! \def PACKAGE_BUFFER_SIZE
 *  \brief BufferSize in packages
 */
-#define PACKAGE_BUFFER_SIZE					150
+#define PACKAGE_BUFFER_SIZE					130
 
 typedef struct sPackageBuffer
 {

@@ -43,6 +43,12 @@
 #define SCALING_DIVIDER_RTT_FOR_Q 5
 #define SCALING_DIVIDER_PLR_FOR_Q 5
 
+#define BANDWITH_USAGE_PER_CHANNEL 0.5
+
+//#define PRINT_METRICS
+#define PRINT_Q
+#define PRINT_WIRELESSLINK_TO_USE
+
 /*!
 * \fn void networkMetrics_TaskEntry(void)
 * \brief Task computes the network metrics used for routing

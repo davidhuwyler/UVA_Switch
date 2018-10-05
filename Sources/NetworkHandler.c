@@ -17,6 +17,7 @@
 #include "LedRed.h"
 #include "TransportHandler.h"
 #include "RNG.h"
+#include "PackageHandler.h"
 
 
 /* global variables, only used in this file */
@@ -32,7 +33,7 @@ static void initNetworkHandlerQueues(void);
 static void initSempahores(void);
 static bool processAssembledPackage(tUartNr wlConn);
 static bool sendGeneratedWlPackage(tWirelessPackage* pPackage, tUartNr rawDataUartNr);
-static void routing(tUartNr deviceNr, bool* wlConnToUse);
+static void oneToOnerouting(tUartNr deviceNr, bool* wlConnToUse);
 static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy);
 
 
@@ -60,24 +61,30 @@ void networkHandler_TaskEntry(void* p)
 			{
 				/* find wl connection to use for this package */
 				bool wlConnToUse[] = {false, false, false, false};
-				bool ackExpected = false;
 				bool packSent = false;
-				routing(deviceNr, wlConnToUse); /* find wlConn to use according to configuration file */
-				for(int wlConn = 0; wlConn < NUMBER_OF_UARTS; wlConn++)
+
+				if(peekAtGeneratedPayloadPackInQueue(deviceNr, &package) == pdTRUE) /* peeking at package from upper handler successful? */
 				{
-					/* this wlconn is configured for the desired priority and there is space in the queue of next handler? */
-					if( (wlConnToUse[wlConn] == true) && (freeSpaceInPackagesToDisassembleQueue(wlConn)) )
+					if(package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST || package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND)
+						oneToOnerouting(deviceNr, wlConnToUse);
+					else
+						networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse);
+
+
+					for(int wlConn = 0; wlConn < NUMBER_OF_UARTS; wlConn++)
 					{
-						if(peekAtGeneratedPayloadPackInQueue(deviceNr, &package) == pdTRUE) /* peeking at package from upper handler successful? */
+						/* this wlconn is configured for the desired priority and there is space in the queue of next handler? */
+						if( (wlConnToUse[wlConn] == true) && (freeSpaceInPackagesToDisassembleQueue(wlConn)) )
 						{
-							tWirelessPackage tmpPack;
-							copyPackage(&package, &tmpPack);
-							if(sendGeneratedWlPackage(&tmpPack, wlConn) == false) /* send the generated package down and store it internally if ACK is configured */
-							{
-								/* package couldnt be sent and payload was freed! don't access package anymore! */
-								break; /* exit innner for loop */
-							}
-							packSent = true;
+
+								tWirelessPackage tmpPack;
+								copyPackage(&package, &tmpPack);
+								if(sendGeneratedWlPackage(&tmpPack, wlConn) == false) /* send the generated package down and store it internally if ACK is configured */
+								{
+									/* package couldnt be sent and payload was freed! don't access package anymore! */
+									break; /* exit innner for loop */
+								}
+								packSent = true;
 						}
 					}
 				}
@@ -88,6 +95,40 @@ void networkHandler_TaskEntry(void* p)
 					package.payload = NULL;
 				}
 			}
+
+
+//			while( nofGeneratedPayloadPacksInQueue(deviceNr) > 0)
+//			{
+//				/* find wl connection to use for this package */
+//				bool wlConnToUse[] = {false, false, false, false};
+//				bool ackExpected = false;
+//				bool packSent = false;
+//				routing(deviceNr, wlConnToUse); /* find wlConn to use according to configuration file */
+//				for(int wlConn = 0; wlConn < NUMBER_OF_UARTS; wlConn++)
+//				{
+//					/* this wlconn is configured for the desired priority and there is space in the queue of next handler? */
+//					if( (wlConnToUse[wlConn] == true) && (freeSpaceInPackagesToDisassembleQueue(wlConn)) )
+//					{
+//						if(peekAtGeneratedPayloadPackInQueue(deviceNr, &package) == pdTRUE) /* peeking at package from upper handler successful? */
+//						{
+//							tWirelessPackage tmpPack;
+//							copyPackage(&package, &tmpPack);
+//							if(sendGeneratedWlPackage(&tmpPack, wlConn) == false) /* send the generated package down and store it internally if ACK is configured */
+//							{
+//								/* package couldnt be sent and payload was freed! don't access package anymore! */
+//								break; /* exit innner for loop */
+//							}
+//							packSent = true;
+//						}
+//					}
+//				}
+//				if(packSent)
+//				{
+//					popFromGeneratedPacksQueue(deviceNr, &package); /* this is done here because if two wlConn configured with same priority, package cant be removed twice */
+//					vPortFree(package.payload);
+//					package.payload = NULL;
+//				}
+//			}
 
 			/* extract data from received packages, send ACK and send raw data to corresponding UART interface */
 			//if(nofAssembledPacksInQueue(deviceNr) > 0)
@@ -151,9 +192,8 @@ static bool sendGeneratedWlPackage(tWirelessPackage* pPackage, tUartNr wlConn)
 * \brief Checks which wireless connection number is configured with the desired priority
 * \return wlConnectionToUse: a number between 0 and (NUMBER_OF_UARTS-1). This priority is not configured if NUMBER_OF_UARTS is returned.
 */
-static void routing(tUartNr deviceNr, bool* wlConnToUse)
+static void oneToOnerouting(tUartNr deviceNr, bool* wlConnToUse)
 {
-	//Workaround until routing is implemented:
 	if(deviceNr == 0)
 	{
 		wlConnToUse[0] = true;
