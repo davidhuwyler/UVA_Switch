@@ -22,11 +22,10 @@ static tPackageBuffer testPackageBuffer[NUMBER_OF_UARTS];
 static bool packetLossIndicatorForPLR[NUMBER_OF_UARTS][NOF_PACKS_FOR_PACKET_LOSS_RATIO];
 static uint16_t indexOfPLRarray[NUMBER_OF_UARTS];
 static uint16_t RTTraw[NUMBER_OF_UARTS], RTTfiltered[NUMBER_OF_UARTS], SBPPraw[NUMBER_OF_UARTS], SBPPfiltered[NUMBER_OF_UARTS], CPP[NUMBER_OF_UARTS], PLR[NUMBER_OF_UARTS],Q[NUMBER_OF_UARTS];
-
 static uint16_t nofTransmittedBytesSinceLastTaskCall[NUMBER_OF_UARTS];
 static bool wirelessLinksToUse[NUMBER_OF_UARTS];
-
 static SemaphoreHandle_t metricsSemaphore;
+static bool onlyPrioDeviceCanSend;
 
 /* prototypes of local functions */
 static void initnetworkMetricsQueues(void);
@@ -42,8 +41,11 @@ static void updatePacketLossRatioPacketOK(uint8_t wirelessNr);
 static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uint16_t* Q);
 static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a);
 uint16_t getTimespan(uint16_t timestamp);
-static void updateLoadBalancingVariables();
+static void routingAlgorithmus();
 static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes);
+static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool onlyUseFreeLinks, uint16_t theshold,uint8_t* nofLinksAboveThreshold);
+static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* choosenLink);
+static void setLinksToUse(bool* wirelessLinksToSet);
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -88,7 +90,7 @@ void networkMetrics_TaskEntry(void* p)
 		}
 		calculateMetrics();
 
-		updateLoadBalancingVariables();
+		routingAlgorithmus();
 	}
 }
 
@@ -217,59 +219,67 @@ static void calculateMetrics(void)
 		pushMsgToShellQueue(infoBuf);
 #endif
 	}
-
-
 }
 
-static uint16_t nofTransmittedBytesSinceLastTaskCall[NUMBER_OF_UARTS];
-static bool wirelessLinksToUse[NUMBER_OF_UARTS];
-
-static void updateLoadBalancingVariables()
+/*!
+* \fn void routingAlgorithmus()
+* \brief implements the routing algorithm
+*/
+static void routingAlgorithmus()
 {
-	uint16_t sortedQlist[4];
-	uint8_t sortedQindexes[4];
+	uint8_t nofLinksAboveThreshold;
+	bool routingDone = false;
+	bool linksAboveQthreshold[4];
 
-	getSortedQlist(sortedQlist,sortedQindexes);
-
-	FRTOS_xSemaphoreTake(metricsSemaphore,50);
-
-	//Search for the channel with higest q and lower Bandwith usage than BANDWITH_USAGE_PER_CHANNEL
-	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	getLinksAboveQThreshold(linksAboveQthreshold,true,Q_HIGH_THRESHOLD,&nofLinksAboveThreshold);
+	//Algorithm Case 1: There are links with high Q  -> Use the Link with higest Q
+	if(nofLinksAboveThreshold)
 	{
-		if(sortedQindexes[i] != NUMBER_OF_UARTS &&
-		  ((nofTransmittedBytesSinceLastTaskCall[sortedQindexes[i]]*1000/config.NetworkMetricsTaskInterval) < (BANDWITH_USAGE_PER_CHANNEL*SBPPfiltered[sortedQindexes[i]])))
+		uint8_t bestWirelessLink;
+		routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink);
+
+		//Fast Adoption: Use Case2 if the Bandwith is falling...
+		if(SBPPraw[bestWirelessLink] == 0)
+			routingDone = false;
+
+
+		onlyPrioDeviceCanSend = false;
+	}
+
+	//Algorithm Case 2: There are links with mid Q  -> Use all free (CPP = 1) links (redundant sending) above Threshold Mid
+	if(!routingDone)
+	{
+		getLinksAboveQThreshold(linksAboveQthreshold,true,Q_MID_THRESHOLD,&nofLinksAboveThreshold);
+		if(nofLinksAboveThreshold)
 		{
-			for(int j = 0 ; j < NUMBER_OF_UARTS ; j++)
-			{
-				if(j == sortedQindexes[i])
-					wirelessLinksToUse[j] = true;
-				else
-					wirelessLinksToUse[j] = false;
-			}
-			break;
+			setLinksToUse(linksAboveQthreshold);
+			routingDone = true;
+			onlyPrioDeviceCanSend = false;
 		}
 	}
 
-	//No channel Was found with enough BW & High Q: Take channel with higest Q
-	if(!wirelessLinksToUse[0] && !wirelessLinksToUse[1] && !wirelessLinksToUse[2] && !wirelessLinksToUse[3])
+	//Algorithm Case 3: There are links with low Q  -> Use all links (redundant sending) above Threshold Low
+	if(!routingDone)
 	{
-		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		getLinksAboveQThreshold(linksAboveQthreshold,false,Q_LOW_THRESHOLD,&nofLinksAboveThreshold);
+		if(nofLinksAboveThreshold)
 		{
-			if(i == sortedQindexes[0])
-				wirelessLinksToUse[i] = true;
-			else
-				wirelessLinksToUse[i] = false;
+			setLinksToUse(linksAboveQthreshold);
+			routingDone = true;
+			onlyPrioDeviceCanSend = false;
 		}
 	}
 
-	//Still no channel found: Use all!
-	if(!wirelessLinksToUse[0] && !wirelessLinksToUse[1] && !wirelessLinksToUse[2] && !wirelessLinksToUse[3])
+	//Algorithm Case 4: There are no links above any threshold  -> Use all links and only Send Data from Prio Device
+	if(!routingDone)
 	{
+		FRTOS_xSemaphoreTake(metricsSemaphore,50);
+		onlyPrioDeviceCanSend = true;
 		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 		{
-			if(i == sortedQindexes[0])
-				wirelessLinksToUse[i] = true;
+			wirelessLinksToUse[i] = true;
 		}
+		FRTOS_xSemaphoreGive(metricsSemaphore);
 	}
 
 	//Clear Byte Counters
@@ -277,10 +287,6 @@ static void updateLoadBalancingVariables()
 	{
 		nofTransmittedBytesSinceLastTaskCall[i] = 0;
 	}
-
-	FRTOS_xSemaphoreGive(metricsSemaphore);
-
-
 
 	//print results
 #ifdef PRINT_WIRELESSLINK_TO_USE
@@ -297,6 +303,13 @@ static void updateLoadBalancingVariables()
 #endif
 }
 
+
+/*!
+* \fn  void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes)
+* \brief Sorts the Q list
+* 	sortedQlist[HigestQ, SecondHigestQ, ThirdHigestQ, LowestQ]
+* 	sordetQIndexes[HigestQindex, SecondHigestQindex, ThirdHigestQindex, LowestQindex] the Indexes are refering to the Q Array
+*/
 static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes)
 {
 	uint16_t unorderedQlist[4];
@@ -324,18 +337,112 @@ static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes)
 	}
 }
 
-
-void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam)
+/*!
+* \fn  void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,uint16_t theshold)
+* \brief checks if theshold is met by a wirelessLink
+* if onlyUseFreeLinks == true, only Links with CPP = 1 are used
+*/
+static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool onlyUseFreeLinks, uint16_t theshold,uint8_t* nofLinksAboveThreshold)
 {
-	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+	*nofLinksAboveThreshold = 0;
 	for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 	{
-		if(wirelessLinksToUse[i])
+		if((Q[i]>=theshold && onlyUseFreeLinks && CPP[i] == 1) ||
+		   (Q[i]>=theshold && !onlyUseFreeLinks))
 		{
-			nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
+			*nofLinksAboveThreshold = *nofLinksAboveThreshold+1;
+			wirelessLinkIsAboveThreshold[i]=true;
 		}
-		wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
+		else
+		{
+			wirelessLinkIsAboveThreshold[i]=false;
+		}
 	}
+}
+
+/*!
+* \fn static void chooseLinkWithHigestQandEnoughBandwith(void)
+* \brief implements the loadbalancind according to Q and used Bandwith
+*/
+static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* choosenLink)
+{
+	uint16_t sortedQlist[4];
+	uint8_t sortedQindexes[4];
+	bool channelFound = false;
+
+	getSortedQlist(sortedQlist,sortedQindexes);
+
+	//Search for the channel with higest q and lower Bandwith usage than BANDWITH_USAGE_PER_CHANNEL
+	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		if(sortedQindexes[i] != NUMBER_OF_UARTS &&
+		  ((nofTransmittedBytesSinceLastTaskCall[sortedQindexes[i]]*1000/config.NetworkMetricsTaskInterval) < (BANDWITH_USAGE_PER_CHANNEL*SBPPfiltered[sortedQindexes[i]])))
+		{
+			for(int j = 0 ; j < NUMBER_OF_UARTS ; j++)
+			{
+				if(j == sortedQindexes[i])
+				{
+					wirelessLinksToUse[j] = true;
+					channelFound=true;
+					*choosenLink = j;
+				}
+				else
+				{
+					wirelessLinksToUse[j] = false;
+				}
+			}
+			break;
+		}
+	}
+	FRTOS_xSemaphoreGive(metricsSemaphore);
+	return channelFound;
+}
+
+/*!
+* \fn void setLinksToUse(bool* wirelessLinksToSet)
+* \brief sets the wirelessLinksToUse array according to the wirelessLinksToSet array
+*/
+static void setLinksToUse(bool* wirelessLinksToSet)
+{
+	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		if(wirelessLinksToSet[i])
+			wirelessLinksToUse[i] = true;
+		else
+			wirelessLinksToUse[i] = false;
+	}
+	FRTOS_xSemaphoreGive(metricsSemaphore);
+}
+
+/*!
+* \fn  void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam)
+*  in the Bool-Array wirelessLinksToUseParam the wireless links to use get saved. They are choosen by the routingAlgorithm
+*  if priorityData==true, the Data is handled with priority
+*/
+void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData)
+{
+	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+	if(!onlyPrioDeviceCanSend || priorityData)
+	{
+		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			if(wirelessLinksToUse[i])
+			{
+				nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
+			}
+			wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
+		}
+	}
+	else
+	{
+		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			wirelessLinksToUseParam[i] = false;
+		}
+	}
+
 	FRTOS_xSemaphoreGive(metricsSemaphore);
 }
 

@@ -18,6 +18,7 @@
 #include "TransportHandler.h"
 #include "RNG.h"
 #include "PackageHandler.h"
+#include "NetworkMetrics.h"
 
 
 /* global variables, only used in this file */
@@ -68,7 +69,7 @@ void networkHandler_TaskEntry(void* p)
 					if(package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST || package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND)
 						oneToOnerouting(deviceNr, wlConnToUse);
 					else
-						networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse);
+						networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse,config.PrioDevice[deviceNr]);
 
 
 					for(int wlConn = 0; wlConn < NUMBER_OF_UARTS; wlConn++)
