@@ -206,7 +206,7 @@ static void calculateMetrics(void)
 			tempPack.payload = NULL;
 		}
 
-		//packageBuffer_freeOlderThanCurrentPackage(&testPackageBuffer[wirelessLink]);
+		packageBuffer_freeOlderThanCurrentPackage(&testPackageBuffer[wirelessLink]);
 	}
 
 	for(int wirelessLink = 0 ;  wirelessLink < NUMBER_OF_UARTS ; wirelessLink ++)
