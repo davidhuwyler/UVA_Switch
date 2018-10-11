@@ -50,7 +50,7 @@
 #define Q_LOW_THRESHOLD 50
 
 //#define PRINT_METRICS
-//#define PRINT_Q
+#define PRINT_Q
 #define PRINT_WIRELESSLINK_TO_USE
 
 /*!
@@ -77,8 +77,9 @@ uint16_t networkMetrics_getResendDelayWirelessConn(void);
 * \fn  void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam)
 *  in the Bool-Array wirelessLinksToUseParam the wireless links to use get saved. They are choosen by the routingAlgorithm
 *  if priorityData==true, the Data is handled with priority
+*  \return true, if packet has a link to be sent, false if no link is available at the moment
 */
-void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData);
+bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData);
 
 /*!
 * \fn ByseType_t popFromRequestNewTestPacketPairQueue(bool* request)

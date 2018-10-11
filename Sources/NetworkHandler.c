@@ -66,11 +66,18 @@ void networkHandler_TaskEntry(void* p)
 
 				if(peekAtGeneratedPayloadPackInQueue(deviceNr, &package) == pdTRUE) /* peeking at package from upper handler successful? */
 				{
+					// Test-Packet: No routing needed
 					if(package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST || package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND)
+					{
 						oneToOnerouting(deviceNr, wlConnToUse);
-					else
-						networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse,config.PrioDevice[deviceNr]);
+					}
 
+					// Data-Packet gets routet
+					else if(!networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse,config.PrioDevice[deviceNr]));
+					{
+						//No link available at the moment... Dump Packet
+						packSent = true;
+					}
 
 					for(int wlConn = 0; wlConn < NUMBER_OF_UARTS; wlConn++)
 					{

@@ -420,9 +420,12 @@ static void setLinksToUse(bool* wirelessLinksToSet)
 * \fn  void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam)
 *  in the Bool-Array wirelessLinksToUseParam the wireless links to use get saved. They are choosen by the routingAlgorithm
 *  if priorityData==true, the Data is handled with priority
+*  \return true, if packet has a link to be sent, false if no link is available at the moment
 */
-void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData)
+bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData)
 {
+	bool packetSendable = false;
+
 	FRTOS_xSemaphoreTake(metricsSemaphore,50);
 	if(!onlyPrioDeviceCanSend || priorityData)
 	{
@@ -433,6 +436,9 @@ void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 				nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
 			}
 			wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
+
+			if(wirelessLinksToUse[i])
+				packetSendable = true;
 		}
 	}
 	else
@@ -444,6 +450,8 @@ void networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 	}
 
 	FRTOS_xSemaphoreGive(metricsSemaphore);
+
+	return packetSendable;
 }
 
 

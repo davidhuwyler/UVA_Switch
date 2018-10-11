@@ -127,7 +127,7 @@ bool readConfig(void)
 
   	/* -------- ConnectionConfiguration -------- */
   	/* PRIO_DEVICE */
-    numberOfCharsCopied = MINI_ini_gets("[ConnectionConfiguration]", "PRIO_DEVICE ",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+    numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "PRIO_DEVICE",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
   	csvToInt(copiedCsv, config.PrioDevice);
 
   	/* -------- TransmissionConfiguration -------- */
