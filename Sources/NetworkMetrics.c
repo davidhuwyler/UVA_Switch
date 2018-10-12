@@ -12,6 +12,7 @@
 #include "PackageBuffer.h"
 #include "XF1.h" // xsprintf
 #include "Shell.h"
+#include "PanicButton.h"
 
 /* global variables, only used in this file */
 static xQueueHandle queueRequestNewTestPacketPair; /* Outgoing Requests for new TestPacketPairs for the TransportHandler */
@@ -271,7 +272,8 @@ static void routingAlgorithmus()
 	}
 
 	//Algorithm Case 4: There are no links above any threshold  -> Use all links and only Send Data from Prio Device
-	if(!routingDone)
+	//This case also gets used, if the panic Button is pressed
+	if(!routingDone || PanicButton_GetVal())
 	{
 		FRTOS_xSemaphoreTake(metricsSemaphore,50);
 		onlyPrioDeviceCanSend = true;

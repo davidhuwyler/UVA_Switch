@@ -167,6 +167,9 @@ bool readConfig(void)
   	/* TEST_HW_LOOPBACK_ONLY */
   	config.EnableStressTest = MINI_ini_getbool("SoftwareConfiguration", "ENABLE_STRESS_TEST",  DEFAULT_BOOL, "serialSwitch_Config.ini");
 
+  	/* ENABLE_ROUTING_ALGORITHM_TEST_BENCH  */
+  	config.EnableRoutingAlgorithmTestBench = MINI_ini_getbool("SoftwareConfiguration", "ENABLE_ROUTING_ALGORITHM_TEST_BENCH",  DEFAULT_BOOL, "serialSwitch_Config.ini");
+
   	/* GENERATE_DEBUG_OUTPUT */
   	config.GenerateDebugOutput = MINI_ini_getl("SoftwareConfiguration", "GENERATE_DEBUG_OUTPUT",  DEFAULT_BOOL, "serialSwitch_Config.ini");
   	switch(config.GenerateDebugOutput)

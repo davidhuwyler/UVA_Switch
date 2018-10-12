@@ -80,7 +80,7 @@
 #include "RNG.h"
 #include "PTRC1.h"
 #include "Pin33.h"
-#include "BitIoLdd9.h"
+#include "PanicButton.h"
 
 #ifdef __cplusplus
 extern "C" {

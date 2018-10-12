@@ -15,6 +15,7 @@
 #include "PackageHandler.h" // for PACK_FILL in golay decoding
 #include "Platform.h"
 #include "Logger.h"
+#include "RoutingAlgorithmTestBench.h"
 
 #if PL_HAS_PERCEPIO
 #include "PTRC1.h"
@@ -583,7 +584,31 @@ static uint16_t readHwBufAndWriteToQueue(tSpiSlaves spiSlave, tUartNr uartNr, xQ
 #endif
 		for (unsigned int cnt = 1; cnt < nofReadBytesToProcess+1; cnt++)
 		{
-			if (xQueueSendToBack(queue, &buffer[cnt], ( TickType_t ) pdMS_TO_TICKS(SPI_HANDLER_QUEUE_DELAY) ) != pdTRUE)
+
+			//Possibility to discard a Byte because of RoutingAlgorithmTestBench
+			if(spiSlave == MAX_14830_WIRELESS_SIDE && config.EnableRoutingAlgorithmTestBench)
+			{
+				if(RoutingAlgorithmTestBench_getReceivePermission(uartNr))
+				{
+					if (xQueueSendToBack(queue, &buffer[cnt], ( TickType_t ) pdMS_TO_TICKS(SPI_HANDLER_QUEUE_DELAY) ) != pdTRUE)
+					{
+						char infoBuf[100];
+						XF1_xsprintf(infoBuf, "Warning: Not all read bytes could be sent to queue, losing %u bytes on wl %u\r\n", (nofReadBytesToProcess-cnt), uartNr);
+						pushMsgToShellQueue(infoBuf);
+						break;
+					}
+				}
+				else
+				{
+					//char infoBuf[100];
+					//XF1_xsprintf(infoBuf, "Byte Lost  to simulate the Modem%u Connection\r\n",uartNr);
+					//pushMsgToShellQueue(infoBuf);
+					break;
+				}
+			}
+
+			//RoutingAlgorithmTestBench disabled
+			else if (xQueueSendToBack(queue, &buffer[cnt], ( TickType_t ) pdMS_TO_TICKS(SPI_HANDLER_QUEUE_DELAY) ) != pdTRUE)
 			{
 				char infoBuf[100];
 				XF1_xsprintf(infoBuf, "Warning: Not all read bytes could be sent to queue, losing %u bytes on wl %u\r\n", (nofReadBytesToProcess-cnt), uartNr);

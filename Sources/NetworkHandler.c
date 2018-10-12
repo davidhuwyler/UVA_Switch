@@ -52,7 +52,12 @@ void networkHandler_TaskEntry(void* p)
 
 	for(;;)
 	{
-		vTaskDelayUntil( &xLastWakeTime, taskInterval ); /* Wait for the next cycle */
+		if(config.EnableRoutingAlgorithmTestBench)
+			vTaskDelayUntil( &xLastWakeTime, RoutingAlorithmTestBench_getNetworkHandlerDelay()); /* Wait for the next cycle */
+		else
+			vTaskDelayUntil( &xLastWakeTime, taskInterval); /* Wait for the next cycle */
+
+
 		/* generate data packages and put those into the package queue */
 		for(int deviceNr = 0; deviceNr<NUMBER_OF_UARTS; deviceNr++)
 		{
@@ -156,6 +161,7 @@ void networkHandler_TaskEntry(void* p)
 void networkHandler_TaskInit(void)
 {
 	initNetworkHandlerQueues();
+
 }
 
 

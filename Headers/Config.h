@@ -29,6 +29,7 @@ typedef struct Configurations {
    /* SoftwareConfiguration */
    bool TestHwLoopbackOnly;
    bool EnableStressTest;
+   bool EnableRoutingAlgorithmTestBench;
    tDebugOutput GenerateDebugOutput;
    bool LoggingEnabled;
    int SdCardSyncInterval_s; // [s]

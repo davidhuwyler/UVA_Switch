@@ -263,6 +263,11 @@ void transportHandler_TaskEntry(void* p)
 				}
 				else												//Max Number of resends reached... Delete Package
 				{
+					static uint16_t nofpackagesUnableToSend = 0;
+					nofpackagesUnableToSend++;
+					char infoBuf[100];
+					XF1_xsprintf(infoBuf, "Number of Failed to send Packages %u Connection\r\n",nofpackagesUnableToSend);
+					pushMsgToShellQueue(infoBuf);
 					vPortFree(package.payload);
 					package.payload = NULL;
 				}

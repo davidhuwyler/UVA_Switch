@@ -36,7 +36,6 @@
 #define MAX_GOLAY_DELAY_TICKS				5000
 
 
-
 /*! \enum eMax14830Reg
 *  \brief Registers of the MAX14830, see MAX14830 data sheet.
 */
