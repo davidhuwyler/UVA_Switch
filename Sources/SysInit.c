@@ -93,9 +93,13 @@ static bool createAllTasks(void)
 	if (xTaskCreateStatic(networkHandler_TaskEntry, "Network_Handler", NETWORK_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferNetworkHandler, &pxTaskBufferNetworkHandler) == NULL) {
 		for(;;) {}} /* error */
 
-	/* create network metrics task */
-	if (xTaskCreateStatic(networkMetrics_TaskEntry, "Network_Metrics", NETWORK_METRICS_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, putStackBufferNetworkMetrics, &pxTaskBufferNetworkMetrics) == NULL) {
-		for(;;) {}} /* error */
+
+	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+	{
+		/* create network metrics task */
+		if (xTaskCreateStatic(networkMetrics_TaskEntry, "Network_Metrics", NETWORK_METRICS_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, putStackBufferNetworkMetrics, &pxTaskBufferNetworkMetrics) == NULL) {
+			for(;;) {}} /* error */
+	}
 
 #if 1
 	/* create network handler task */

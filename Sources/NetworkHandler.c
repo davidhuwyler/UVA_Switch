@@ -79,7 +79,7 @@ void networkHandler_TaskEntry(void* p)
 					}
 
 					// Data-Packet gets routet
-					else if(!networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse,config.PrioDevice[deviceNr]));
+					else if(!networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse, package.payloadNr,package.devNum))
 					{
 						//No link available at the moment... Dump Packet
 						packSent = true;

@@ -53,6 +53,8 @@
 //#define PRINT_Q
 //#define PRINT_WIRELESSLINK_TO_USE
 
+
+#define HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND 4
 /*!
 * \fn void networkMetrics_TaskEntry(void)
 * \brief Task computes the network metrics used for routing
@@ -79,7 +81,7 @@ uint16_t networkMetrics_getResendDelayWirelessConn(void);
 *  if priorityData==true, the Data is handled with priority
 *  \return true, if packet has a link to be sent, false if no link is available at the moment
 */
-bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData);
+bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, uint16_t payloadNr, uint8_t deviceNr);
 
 /*!
 * \fn ByseType_t popFromRequestNewTestPacketPairQueue(bool* request)

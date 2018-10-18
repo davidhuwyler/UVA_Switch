@@ -11,18 +11,27 @@ typedef enum eDebugOutput
 	DEBUG_OUTPUT_FULLLY_ENABLED = 0x03
 } tDebugOutput;
 
+typedef enum eRoutingMethode
+{
+	ROUTING_METHODE_HARD_RULES = 0x01,
+	ROUTING_METHODE_METRICS = 0x02
+} tRoutingMethode;
+
 typedef struct Configurations {
 	/* BaudRateConfiguration */
    int BaudRatesWirelessConn[NUMBER_OF_UARTS]; //
    int BaudRatesDeviceConn[NUMBER_OF_UARTS]; //
+
    /* ConnectionConfiguration */
    int PrioDevice[NUMBER_OF_UARTS];
+   int fallbackWirelessLink[NUMBER_OF_UARTS];
    /* TransmissionConfiguration */
    int ResendDelayWirelessConn; /* [delayPerWirelessConn] */
    int ResendCountWirelessConn; /* [delayPerWirelessConn] */
    int UsualPacketSizeDeviceConn[NUMBER_OF_UARTS];
    int PackageGenMaxTimeout[NUMBER_OF_UARTS];
    int PayloadReorderingTimeout;
+   tRoutingMethode RoutingMethode;
    bool UseProbingPacksWlConn[NUMBER_OF_UARTS];
    int CostPerPacketMetric[NUMBER_OF_UARTS];
    bool UseGolayPerWlConn[NUMBER_OF_UARTS];

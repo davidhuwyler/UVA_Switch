@@ -31,6 +31,7 @@ static uint16_t nofTransmittedBytesSinceLastTaskCall[NUMBER_OF_UARTS];
 static bool wirelessLinksToUse[NUMBER_OF_UARTS];
 static SemaphoreHandle_t metricsSemaphore;
 static bool onlyPrioDeviceCanSend;
+static uint16_t payloadNrBuffer[PACKAGE_BUFFER_SIZE];
 
 /* prototypes of local functions */
 static void initnetworkMetricsQueues(void);
@@ -46,11 +47,13 @@ static void updatePacketLossRatioPacketOK(uint8_t wirelessNr);
 static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uint16_t* Q);
 static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a);
 uint16_t getTimespan(uint16_t timestamp);
-static void routingAlgorithmus();
+static void routingAlgorithmusMetricsMethode();
 static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes);
 static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool onlyUseFreeLinks, uint16_t theshold,uint8_t* nofLinksAboveThreshold);
 static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* choosenLink);
 static void setLinksToUse(bool* wirelessLinksToSet);
+uint8_t getNofSendTries(uint8_t payloadNr);
+void setGPIOforUsedLinks(void);
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)
@@ -66,6 +69,7 @@ void networkMetrics_TaskEntry(void* p)
 	for(;;)
 	{
 		vTaskDelayUntil( &xLastWakeTime, taskInterval ); /* Wait for the next cycle */
+
 		generateTestPacketPairRequest();
 
 		/* Put all Test-Packets from the Transport-Handler (queueTestPacketResults) into the PacketBuffer */
@@ -93,9 +97,8 @@ void networkMetrics_TaskEntry(void* p)
 				package.payload = NULL;
 			}
 		}
-		calculateMetrics();
 
-		routingAlgorithmus();
+		routingAlgorithmusMetricsMethode();
 	}
 }
 
@@ -227,14 +230,16 @@ static void calculateMetrics(void)
 }
 
 /*!
-* \fn void routingAlgorithmus()
-* \brief implements the routing algorithm
+* \fn void routingAlgorithmusMetricsMethode()
+* \brief implements the routing algorithm with network metrics
 */
-static void routingAlgorithmus()
+static void routingAlgorithmusMetricsMethode()
 {
 	uint8_t nofLinksAboveThreshold;
 	bool routingDone = false;
 	bool linksAboveQthreshold[4];
+
+	calculateMetrics();
 
 	getLinksAboveQThreshold(linksAboveQthreshold,true,Q_HIGH_THRESHOLD,&nofLinksAboveThreshold);
 	//Algorithm Case 1: There are links with high Q  -> Use the Link with higest Q
@@ -309,6 +314,74 @@ static void routingAlgorithmus()
 #endif
 
 
+	setGPIOforUsedLinks();
+
+}
+
+/*!
+* \fn void routingAlgorithmusHardRulesMethode()
+* \brief implements the routing algorithm with hard rules
+*/
+void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
+{
+
+	if(PanicButton_GetVal())
+	{
+		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			wirelessLinksToUse[i] = true;
+		}
+	}
+
+	// Rule #1 at first try use 1to1 routing
+	else if(sendTries == 1)
+	{
+		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			if(deviceNr == i)
+				wirelessLinksToUse[i] = true;
+			else
+				wirelessLinksToUse[i] = false;
+		}
+	}
+
+	// Rule #2 Exchange wireless Link with a non prioritised link
+	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND && config.PrioDevice[deviceNr])
+	{
+		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			if(deviceNr == i || config.fallbackWirelessLink[deviceNr] == i)
+				wirelessLinksToUse[i] = true;
+			else
+				wirelessLinksToUse[i] = false;
+		}
+	}
+
+	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND)
+	{
+		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			if(deviceNr == i)
+				wirelessLinksToUse[i] = true;
+			else
+				wirelessLinksToUse[i] = false;
+		}
+	}
+
+	// Rule #3
+	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND)
+	{
+		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			wirelessLinksToUse[i] = true;
+		}
+	}
+
+	setGPIOforUsedLinks();
+}
+
+void setGPIOforUsedLinks(void)
+{
 	//Set UsedWirelessLinks GPIOs
 	if(wirelessLinksToUse[0])
 		WirelessLink0Used_SetVal();
@@ -333,7 +406,6 @@ static void routingAlgorithmus()
 
 	else
 		WirelessLink3Used_ClrVal();
-
 }
 
 
@@ -455,36 +527,53 @@ static void setLinksToUse(bool* wirelessLinksToSet)
 *  if priorityData==true, the Data is handled with priority
 *  \return true, if packet has a link to be sent, false if no link is available at the moment
 */
-bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, bool priorityData)
+bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, uint16_t payloadNr, uint8_t deviceNr)
 {
 	bool packetSendable = false;
 
-	FRTOS_xSemaphoreTake(metricsSemaphore,50);
-	if(!onlyPrioDeviceCanSend || priorityData)
+	if(config.RoutingMethode == ROUTING_METHODE_HARD_RULES)
 	{
+		uint8_t sendTries = getNofSendTries(payloadNr);
+
+		routingAlgorithmusHardRulesMethode(deviceNr,sendTries);
 		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 		{
-			if(wirelessLinksToUse[i])
-			{
-				nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
-			}
 			wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
-
 			if(wirelessLinksToUse[i])
 				packetSendable = true;
 		}
 	}
-	else
+
+	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
 	{
-		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+		FRTOS_xSemaphoreTake(metricsSemaphore,50);
+		if(!onlyPrioDeviceCanSend || config.PrioDevice[deviceNr])
 		{
-			wirelessLinksToUseParam[i] = false;
+			for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(wirelessLinksToUse[i])
+				{
+					nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
+				}
+				wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
+
+				if(wirelessLinksToUse[i])
+					packetSendable = true;
+			}
 		}
+		else
+		{
+			for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUseParam[i] = false;
+			}
+		}
+
+		FRTOS_xSemaphoreGive(metricsSemaphore);
 	}
 
-	FRTOS_xSemaphoreGive(metricsSemaphore);
-
 	return packetSendable;
+
 }
 
 
@@ -614,7 +703,7 @@ static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uin
 */
 uint16_t networkMetrics_getResendDelayWirelessConn(void)
 {
-	if(config.UseProbingPacksWlConn[0] || config.UseProbingPacksWlConn[1] || config.UseProbingPacksWlConn[2] || config.UseProbingPacksWlConn[3])
+	if(config.RoutingMethode == ROUTING_METHODE_METRICS && (config.UseProbingPacksWlConn[0] || config.UseProbingPacksWlConn[1] || config.UseProbingPacksWlConn[2] || config.UseProbingPacksWlConn[3]))
 	{
 		uint16_t longestRTT = 0;
 		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
@@ -843,6 +932,28 @@ uint16_t getTimespan(uint16_t timestamp)
 
 
 /*!
+* \fn uint8_t getNofSendTries(uint8_t payloadNr)
+* \brief maintains the payloadNrBuffer array and
+* returns the number of entries with value "payloadNr" in the payloadNrBuffer array
+*/
+uint8_t getNofSendTries(uint8_t payloadNr)
+{
+	static uint16_t payloadNrBufferIndex = 0;
+	uint8_t nofEntriesInBuffer = 0;
+	payloadNrBuffer[payloadNrBufferIndex] = payloadNr;
+	payloadNrBufferIndex++;
+	payloadNrBufferIndex %= PACKAGE_BUFFER_SIZE;
+
+	for(int i = 0; i < PACKAGE_BUFFER_SIZE ; i++)
+	{
+		if(payloadNrBuffer[i] == payloadNr)
+			nofEntriesInBuffer ++;
+	}
+
+	return nofEntriesInBuffer;
+}
+
+/*!
 * \fn void initnetworkMetricsQueues(void)
 * \brief This function initializes the array of queues
 */
@@ -872,7 +983,10 @@ static void initnetworkMetricsQueues(void)
 */
 BaseType_t popFromRequestNewTestPacketPairQueue(bool* request)
 {
-	return xQueueReceive(queueRequestNewTestPacketPair, request, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+		return xQueueReceive(queueRequestNewTestPacketPair, request, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	else
+		return pdFAIL;
 }
 
 /*!
@@ -883,5 +997,8 @@ BaseType_t popFromRequestNewTestPacketPairQueue(bool* request)
 */
 BaseType_t pushToTestPacketResultsQueue(tWirelessPackage* results)
 {
-	return xQueueSendToBack(queueTestPacketResults, results, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+		return xQueueSendToBack(queueTestPacketResults, results, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	else
+		return pdFAIL;
 }

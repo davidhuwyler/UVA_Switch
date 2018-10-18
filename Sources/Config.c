@@ -130,6 +130,10 @@ bool readConfig(void)
     numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "PRIO_DEVICE",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
   	csvToInt(copiedCsv, config.PrioDevice);
 
+  	/* FALLBACK_WIRELESS_LINK */
+    numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "FALLBACK_WIRELESS_LINK",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+  	csvToInt(copiedCsv, config.fallbackWirelessLink);
+
   	/* -------- TransmissionConfiguration -------- */
   	/* ResendDelayWirelessConn */
   	config.ResendDelayWirelessConn = MINI_ini_getl("TransmissionConfiguration", "RESEND_DELAY_WIRELESS_CONN",  DEFAULT_INT, "serialSwitch_Config.ini");
@@ -147,6 +151,17 @@ bool readConfig(void)
 
   	/* PACK_REORDERING_TIMEOUT */
   	config.PayloadReorderingTimeout = MINI_ini_getl("TransmissionConfiguration", "PAYLOAD_REORDERING_TIMEOUT",  DEFAULT_INT, "serialSwitch_Config.ini");
+
+  	/* ROUTING_METHODE */
+  	config.RoutingMethode = MINI_ini_getl("TransmissionConfiguration", "ROUTING_METHODE",  DEFAULT_INT, "serialSwitch_Config.ini");
+  	switch(config.RoutingMethode)
+  	{
+		case ROUTING_METHODE_HARD_RULES:
+		case ROUTING_METHODE_METRICS:
+			break; /* no action when config parameter set right */
+		default:
+			config.RoutingMethode = ROUTING_METHODE_HARD_RULES; /* ROUTING_METHODE_HARD_RULES if parameter faulty */
+  	}
 
   	/* USE_PROBING_PACKS  */
   	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USE_PROBING_PACKS",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");

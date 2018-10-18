@@ -69,6 +69,7 @@ traceString appHandlerUserEvent[10];
 */
 void transportHandler_TaskEntry(void* p)
 {
+	static bool workaroundToStartUAVswitch = true;
 	const TickType_t taskInterval = pdMS_TO_TICKS(config.TransportHandlerTaskInterval);
 	tWirelessPackage package,pAckPack;
 	bool request = true;
@@ -83,8 +84,9 @@ void transportHandler_TaskEntry(void* p)
 		{
 
 			/*------------------------ Generate TestPackets if requested ---------------------------*/
-			if (popFromRequestNewTestPacketPairQueue(&request) == pdTRUE && config.UseProbingPacksWlConn[deviceNr] == true)
+			if ((popFromRequestNewTestPacketPairQueue(&request) == pdTRUE && config.UseProbingPacksWlConn[deviceNr] == true) || workaroundToStartUAVswitch)
 			{
+				workaroundToStartUAVswitch = false;
 				sendOutTestPackagePair(deviceNr, &package);
 			}
 
@@ -489,6 +491,7 @@ static void sendOutTestPackagePair(tUartNr deviceNr, tWirelessPackage* pPackage)
 	{
 		tWirelessPackage tempPack;
 		copyPackage(pPackage,&tempPack);
+
 		pushToTestPacketResultsQueue(&tempPack);
 		if(pushToGeneratedPacksQueue(deviceNr, pPackage) != pdTRUE)
 		{
