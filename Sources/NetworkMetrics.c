@@ -13,6 +13,10 @@
 #include "XF1.h" // xsprintf
 #include "Shell.h"
 #include "PanicButton.h"
+#include "WirelessLink0Used.h"
+#include "WirelessLink1Used.h"
+#include "WirelessLink2Used.h"
+#include "WirelessLink3Used.h"
 
 /* global variables, only used in this file */
 static xQueueHandle queueRequestNewTestPacketPair; /* Outgoing Requests for new TestPacketPairs for the TransportHandler */
@@ -303,6 +307,33 @@ static void routingAlgorithmus()
 	XF1_xsprintf(infoBuf, "\r\n");
 	pushMsgToShellQueue(infoBuf);
 #endif
+
+
+	//Set UsedWirelessLinks GPIOs
+	if(wirelessLinksToUse[0])
+		WirelessLink0Used_SetVal();
+
+	else
+		WirelessLink0Used_ClrVal();
+
+	if(wirelessLinksToUse[1])
+		WirelessLink1Used_SetVal();
+
+	else
+		WirelessLink1Used_ClrVal();
+
+	if(wirelessLinksToUse[2])
+		WirelessLink2Used_SetVal();
+
+	else
+		WirelessLink2Used_ClrVal();
+
+	if(wirelessLinksToUse[3])
+		WirelessLink3Used_SetVal();
+
+	else
+		WirelessLink3Used_ClrVal();
+
 }
 
 

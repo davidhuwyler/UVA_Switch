@@ -19,6 +19,7 @@
 #include "RNG.h"
 #include "PackageHandler.h"
 #include "NetworkMetrics.h"
+#include "RoutingAlgorithmTestBench.h"
 
 
 /* global variables, only used in this file */

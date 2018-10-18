@@ -50,8 +50,8 @@
 #define Q_LOW_THRESHOLD 50
 
 //#define PRINT_METRICS
-#define PRINT_Q
-#define PRINT_WIRELESSLINK_TO_USE
+//#define PRINT_Q
+//#define PRINT_WIRELESSLINK_TO_USE
 
 /*!
 * \fn void networkMetrics_TaskEntry(void)

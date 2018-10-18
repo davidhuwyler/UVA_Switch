@@ -80,7 +80,17 @@
 #include "RNG.h"
 #include "PTRC1.h"
 #include "Pin33.h"
+#include "BitIoLdd9.h"
 #include "PanicButton.h"
+#include "BitIoLdd10.h"
+#include "WirelessLink0Used.h"
+#include "BitIoLdd11.h"
+#include "WirelessLink1Used.h"
+#include "BitIoLdd12.h"
+#include "WirelessLink2Used.h"
+#include "BitIoLdd13.h"
+#include "WirelessLink3Used.h"
+#include "BitIoLdd14.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -10,7 +10,12 @@
 
 
 #define BYTE_ERROR_TEST_PATTERN_LENGTH 20
+#define PACKET_ERROR_TEST_PATTERN_LENGTH 20
+
 #define LATENCY_VARIATION_TEST_PATTERN_LENGHT 20
+
+#define USE_BYTE_LEVEL_ERRORS
+#define USE_PACKET_LEVEL_ERRORS
 
 /*!
 * \fn  bool RoutingAlgorithmTestBench_getReceivePermission(uint8_t wirelessNr)
@@ -18,7 +23,7 @@
 *  This is only used, if the configuration ENABLE_ROUTING_ALGORITHM_TEST_BENCH is Enabled
 *  \return true, the byte should get used
 */
-bool RoutingAlgorithmTestBench_getReceivePermission(uint8_t wirelessNr);
+bool RoutingAlgorithmTestBench_getByteReceivePermission(uint8_t wirelessNr);
 
 /*!
 * \fn uint16_t RoutingAlorithmTestBench_getNetworkHandlerDelay(void)

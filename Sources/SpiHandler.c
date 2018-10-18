@@ -588,7 +588,7 @@ static uint16_t readHwBufAndWriteToQueue(tSpiSlaves spiSlave, tUartNr uartNr, xQ
 			//Possibility to discard a Byte because of RoutingAlgorithmTestBench
 			if(spiSlave == MAX_14830_WIRELESS_SIDE && config.EnableRoutingAlgorithmTestBench)
 			{
-				if(RoutingAlgorithmTestBench_getReceivePermission(uartNr))
+				if(RoutingAlgorithmTestBench_getByteReceivePermission(uartNr))
 				{
 					if (xQueueSendToBack(queue, &buffer[cnt], ( TickType_t ) pdMS_TO_TICKS(SPI_HANDLER_QUEUE_DELAY) ) != pdTRUE)
 					{
