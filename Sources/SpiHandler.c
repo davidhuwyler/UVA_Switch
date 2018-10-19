@@ -15,7 +15,7 @@
 #include "PackageHandler.h" // for PACK_FILL in golay decoding
 #include "Platform.h"
 #include "Logger.h"
-#include "RoutingAlgorithmTestBench.h"
+#include "TestBenchModemSimulation.h"
 
 #if PL_HAS_PERCEPIO
 #include "PTRC1.h"
@@ -588,7 +588,7 @@ static uint16_t readHwBufAndWriteToQueue(tSpiSlaves spiSlave, tUartNr uartNr, xQ
 			//Possibility to discard a Byte because of RoutingAlgorithmTestBench
 			if(spiSlave == MAX_14830_WIRELESS_SIDE && config.EnableRoutingAlgorithmTestBench)
 			{
-				if(RoutingAlgorithmTestBench_getByteReceivePermission(uartNr))
+				if(TestBenchModemSimulation_getByteReceivePermission(uartNr))
 				{
 					if (xQueueSendToBack(queue, &buffer[cnt], ( TickType_t ) pdMS_TO_TICKS(SPI_HANDLER_QUEUE_DELAY) ) != pdTRUE)
 					{

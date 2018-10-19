@@ -7,6 +7,7 @@
 #include "PackageHandler.h"
 #include "NetworkHandler.h"
 #include "NetworkMetrics.h"
+#include "TestBenchMaster.h"
 #include "TransportHandler.h"
 #include "Blinky.h"
 #include "ThroughputPrintout.h"
@@ -57,6 +58,7 @@ static bool createAllTasks(void)
 	static StackType_t putStackBufferNetworkMetrics[NETWORK_METRICS_STACK_SIZE];
 	static StackType_t puxStackBufferTransportHandler[TRANSPORT_HANDLER_STACK_SIZE];
 	static StackType_t puxStackBufferThroughputPrintout[THROUGHPUT_PRINTOUT_STACK_SIZE];
+	static StackType_t puxStackBufferTestBenchMaster[TESTBENCHMASTER_STACK_SIZE];
 	static StackType_t puxStackBufferLogger[LOGGER_STACK_SIZE];
 	static StackType_t puxStackBufferBlinky[BLINKY_STACK_SIZE];
 
@@ -68,6 +70,7 @@ static bool createAllTasks(void)
 	static StaticTask_t pxTaskBufferNetworkMetrics;
 	static StaticTask_t pxTaskBufferTransportHandler;
 	static StaticTask_t pxTaskBufferThroughputPrintout;
+	static StaticTask_t pxTaskBufferTestBenchMaster;
 	static StaticTask_t pxTaskBufferLogger;
 	static StaticTask_t pxTaskBufferBlinky;
 
@@ -85,27 +88,35 @@ static bool createAllTasks(void)
 
 
 	/* create package handler task */
-	if (xTaskCreateStatic(packageHandler_TaskEntry, "Package_Handler", PACKAGE_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferPackageHandler, &pxTaskBufferPackageHandler) == NULL) {
-		for(;;) {}} /* error */
-
-
-	/* create network handler task */
-	if (xTaskCreateStatic(networkHandler_TaskEntry, "Network_Handler", NETWORK_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferNetworkHandler, &pxTaskBufferNetworkHandler) == NULL) {
-		for(;;) {}} /* error */
-
-
-	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+	if(config.EnableRoutingAlgorithmTestBench != TESTBENCH_MODE_MASTER)
 	{
-		/* create network metrics task */
-		if (xTaskCreateStatic(networkMetrics_TaskEntry, "Network_Metrics", NETWORK_METRICS_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, putStackBufferNetworkMetrics, &pxTaskBufferNetworkMetrics) == NULL) {
+		if (xTaskCreateStatic(packageHandler_TaskEntry, "Package_Handler", PACKAGE_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferPackageHandler, &pxTaskBufferPackageHandler) == NULL) {
+			for(;;) {}} /* error */
+
+		/* create network handler task */
+		if (xTaskCreateStatic(networkHandler_TaskEntry, "Network_Handler", NETWORK_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferNetworkHandler, &pxTaskBufferNetworkHandler) == NULL) {
+			for(;;) {}} /* error */
+
+
+		if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+		{
+			/* create network metrics task */
+			if (xTaskCreateStatic(networkMetrics_TaskEntry, "Network_Metrics", NETWORK_METRICS_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, putStackBufferNetworkMetrics, &pxTaskBufferNetworkMetrics) == NULL) {
+				for(;;) {}} /* error */
+		}
+
+
+		/* create network handler task */
+		if (xTaskCreateStatic(transportHandler_TaskEntry, "Transport_Handler", TRANSPORT_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferTransportHandler, &pxTaskBufferTransportHandler) == NULL) {
+			for(;;) {}} /* error */
+	}
+	else
+	{
+		/* create test bench master task */
+		if (xTaskCreateStatic(testBenchMaster_TaskEntry, "TestBench_Master", TESTBENCHMASTER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferTestBenchMaster, &pxTaskBufferTestBenchMaster) == NULL) {
 			for(;;) {}} /* error */
 	}
 
-#if 1
-	/* create network handler task */
-	if (xTaskCreateStatic(transportHandler_TaskEntry, "Transport_Handler", TRANSPORT_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferTransportHandler, &pxTaskBufferTransportHandler) == NULL) {
-		for(;;) {}} /* error */
-#endif
 	/* create throughput printout task */
 	if(config.GenerateDebugOutput == DEBUG_OUTPUT_FULLLY_ENABLED)
 	{
@@ -119,7 +130,6 @@ static bool createAllTasks(void)
 		if (xTaskCreateStatic(logger_TaskEntry, "Logger", LOGGER_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, puxStackBufferLogger, &pxTaskBufferLogger) == NULL) {
 			for(;;) {}} /* error */
 	}
-
 
 	/* create blinky task last to let user know that all init methods and mallocs were successful when LED blinks */
 	if (xTaskCreateStatic(blinky_TaskEntry, "Blinky", BLINKY_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, puxStackBufferBlinky, &pxTaskBufferBlinky) == NULL) {

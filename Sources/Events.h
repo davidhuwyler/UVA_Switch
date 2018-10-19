@@ -79,8 +79,6 @@
 #include "CRC1.h"
 #include "RNG.h"
 #include "PTRC1.h"
-#include "Pin33.h"
-#include "BitIoLdd9.h"
 #include "PanicButton.h"
 #include "BitIoLdd10.h"
 #include "WirelessLink0Used.h"
@@ -91,6 +89,7 @@
 #include "BitIoLdd13.h"
 #include "WirelessLink3Used.h"
 #include "BitIoLdd14.h"
+#include "AS1.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -241,6 +240,42 @@ void PTRC1_OnTraceWrap(void);
 **     Returns     : Nothing
 ** ===================================================================
 */
+
+/*
+** ===================================================================
+**     Event       :  AS1_OnBlockReceived (module Events)
+**
+**     Component   :  AS1 [Serial_LDD]
+*/
+/*!
+**     @brief
+**         This event is called when the requested number of data is
+**         moved to the input buffer.
+**     @param
+**         UserDataPtr     - Pointer to the user or
+**                           RTOS specific data. This pointer is passed
+**                           as the parameter of Init method.
+*/
+/* ===================================================================*/
+void AS1_OnBlockReceived(LDD_TUserData *UserDataPtr);
+
+/*
+** ===================================================================
+**     Event       :  AS1_OnBlockSent (module Events)
+**
+**     Component   :  AS1 [Serial_LDD]
+*/
+/*!
+**     @brief
+**         This event is called after the last character from the
+**         output buffer is moved to the transmitter. 
+**     @param
+**         UserDataPtr     - Pointer to the user or
+**                           RTOS specific data. This pointer is passed
+**                           as the parameter of Init method.
+*/
+/* ===================================================================*/
+void AS1_OnBlockSent(LDD_TUserData *UserDataPtr);
 
 /* END Events */
 

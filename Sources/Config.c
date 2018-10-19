@@ -183,7 +183,16 @@ bool readConfig(void)
   	config.EnableStressTest = MINI_ini_getbool("SoftwareConfiguration", "ENABLE_STRESS_TEST",  DEFAULT_BOOL, "serialSwitch_Config.ini");
 
   	/* ENABLE_ROUTING_ALGORITHM_TEST_BENCH  */
-  	config.EnableRoutingAlgorithmTestBench = MINI_ini_getbool("SoftwareConfiguration", "ENABLE_ROUTING_ALGORITHM_TEST_BENCH",  DEFAULT_BOOL, "serialSwitch_Config.ini");
+  	config.EnableRoutingAlgorithmTestBench = MINI_ini_getl("SoftwareConfiguration", "ENABLE_ROUTING_ALGORITHM_TEST_BENCH",  DEFAULT_INT, "serialSwitch_Config.ini");
+  	switch(config.EnableRoutingAlgorithmTestBench)
+  	{
+		case TESTBENCH_OFF:
+		case TESTBENCH_MODE_MODEM_SIMULATOR:
+		case TESTBENCH_MODE_MASTER:
+			break; /* no action when config parameter set right */
+		default:
+			config.EnableRoutingAlgorithmTestBench = TESTBENCH_OFF; /* ROUTING_METHODE_HARD_RULES if parameter faulty */
+  	}
 
   	/* GENERATE_DEBUG_OUTPUT */
   	config.GenerateDebugOutput = MINI_ini_getl("SoftwareConfiguration", "GENERATE_DEBUG_OUTPUT",  DEFAULT_BOOL, "serialSwitch_Config.ini");
@@ -217,6 +226,9 @@ bool readConfig(void)
 
     /* TRANSPORT_HANDLER_TASK_INTERVAL */
     config.TransportHandlerTaskInterval = MINI_ini_getl("SoftwareConfiguration", "TRANSPORT_HANDLER_TASK_INTERVAL",  DEFAULT_INT, "serialSwitch_Config.ini");
+
+    /* TEST_BENCH_MASTER_TASK_INTERVAL */
+    config.TestBenchMasterTaskInterval = MINI_ini_getl("SoftwareConfiguration", "TEST_BENCH_MASTER_TASK_INTERVAL",  DEFAULT_INT, "serialSwitch_Config.ini");
 
   	/* TOGGLE_GREEN_LED_INTERVAL */
   	config.ToggleGreenLedInterval = MINI_ini_getl("SoftwareConfiguration", "TOGGLE_GREEN_LED_INTERVAL",  DEFAULT_INT, "serialSwitch_Config.ini");

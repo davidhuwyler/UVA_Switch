@@ -17,6 +17,14 @@ typedef enum eRoutingMethode
 	ROUTING_METHODE_METRICS = 0x02
 } tRoutingMethode;
 
+typedef enum eTestBenchRoutingAlgorithmModes
+{
+	TESTBENCH_OFF = 0x00,
+	TESTBENCH_MODE_MODEM_SIMULATOR = 0x01,
+	TESTBENCH_MODE_MASTER = 0x02
+} tTestBenchRoutingAlgorithmModes;
+
+
 typedef struct Configurations {
 	/* BaudRateConfiguration */
    int BaudRatesWirelessConn[NUMBER_OF_UARTS]; //
@@ -38,7 +46,7 @@ typedef struct Configurations {
    /* SoftwareConfiguration */
    bool TestHwLoopbackOnly;
    bool EnableStressTest;
-   bool EnableRoutingAlgorithmTestBench;
+   tTestBenchRoutingAlgorithmModes EnableRoutingAlgorithmTestBench;
    tDebugOutput GenerateDebugOutput;
    bool LoggingEnabled;
    int SdCardSyncInterval_s; // [s]
@@ -47,6 +55,7 @@ typedef struct Configurations {
    int NetworkHandlerTaskInterval; // [ms]
    int NetworkMetricsTaskInterval; // [ms]
    int TransportHandlerTaskInterval; // [ms]
+   int TestBenchMasterTaskInterval; // [ms]
    int ToggleGreenLedInterval; // [ms]
    int ThroughputPrintoutTaskInterval_s; // [sec]
    int ShellTaskInterval; // [ms]

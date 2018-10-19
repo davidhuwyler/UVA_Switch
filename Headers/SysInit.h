@@ -16,6 +16,7 @@ void SysInit_TaskEntry(void* param);
 #define NETWORK_METRICS_STACK_SIZE		(2000/sizeof(StackType_t))
 #define TRANSPORT_HANDLER_STACK_SIZE	(2000/sizeof(StackType_t))
 #define THROUGHPUT_PRINTOUT_STACK_SIZE	(2000/sizeof(StackType_t))
+#define TESTBENCHMASTER_STACK_SIZE		(2000/sizeof(StackType_t))
 #define LOGGER_STACK_SIZE				(2000/sizeof(StackType_t))
 #define BLINKY_STACK_SIZE				(400/sizeof(StackType_t))
 

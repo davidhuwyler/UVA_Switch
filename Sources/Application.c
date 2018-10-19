@@ -17,6 +17,7 @@
 #include "NetworkHandler.h"
 #include "NetworkMetrics.h"
 #include "TransportHandler.h"
+#include "TestBenchMaster.h"
 #include "Shell.h"
 #include "Logger.h"
 #include "Config.h"
@@ -36,7 +37,9 @@ void APP_Run(void)
 	packageHandler_TaskInit(); /* 2x4x(queueLength)x56B = 3kB */
 	networkHandler_TaskInit(); /* 2x4x(queueLength)x56B = 3kB */
 	networkMetrics_TaskInit();
+	testBenchMaster_TaskInit();
 	transportHandler_TaskInit();
+
 
   if (xTaskCreate(SysInit_TaskEntry, "Init", 4000/sizeof(StackType_t), NULL, tskIDLE_PRIORITY+2,  NULL) != pdPASS) {
           for(;;){}} /* error */

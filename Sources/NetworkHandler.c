@@ -19,7 +19,7 @@
 #include "RNG.h"
 #include "PackageHandler.h"
 #include "NetworkMetrics.h"
-#include "RoutingAlgorithmTestBench.h"
+#include "TestBenchModemSimulation.h"
 
 
 /* global variables, only used in this file */
@@ -54,7 +54,7 @@ void networkHandler_TaskEntry(void* p)
 	for(;;)
 	{
 		if(config.EnableRoutingAlgorithmTestBench)
-			vTaskDelayUntil( &xLastWakeTime, RoutingAlorithmTestBench_getNetworkHandlerDelay()); /* Wait for the next cycle */
+			vTaskDelayUntil( &xLastWakeTime, TestBenchModemSimulation_getNetworkHandlerDelay()); /* Wait for the next cycle */
 		else
 			vTaskDelayUntil( &xLastWakeTime, taskInterval); /* Wait for the next cycle */
 

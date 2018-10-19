@@ -30,7 +30,6 @@
 #include "Events.h"
 #include "Init_Config.h"
 #include "PDD_Includes.h"
-#include "Pin33.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +39,7 @@ extern "C" {
 /* User includes (#include below this line is not maintained by Processor Expert) */
 #include "spiHandler.h" // mutex declared there
 #include "FRTOS.h" // semaphore function calls
+#include "TestBenchMaster.h"
 /*
 ** ===================================================================
 **     Event       :  Cpu_OnNMI (module Events)
@@ -103,7 +103,6 @@ void FRTOS_vApplicationTickHook(void)
   /* Called for every RTOS tick. */
   TMOUT1_AddTick();
   TmDt1_AddTick();
-  Pin33_NegVal();
 }
 
 /*
@@ -246,6 +245,49 @@ void PTRC1_OnTraceWrap(void)
   /* GDB: dump binary memory <file> <hexStartAddr> <hexEndAddr> */
   //PTRC1_vGetGDBDumpCommand(buf, sizeof(buf), "c:\\tmp\\trc.dump");
 #endif
+}
+
+/*
+** ===================================================================
+**     Event       :  AS1_OnBlockReceived (module Events)
+**
+**     Component   :  AS1 [Serial_LDD]
+*/
+/*!
+**     @brief
+**         This event is called when the requested number of data is
+**         moved to the input buffer.
+**     @param
+**         UserDataPtr     - Pointer to the user or
+**                           RTOS specific data. This pointer is passed
+**                           as the parameter of Init method.
+*/
+/* ===================================================================*/
+void AS1_OnBlockReceived(LDD_TUserData *UserDataPtr)
+{
+  /* Write your code here ... */
+	testBenchMaster_setUARTreceiveBuffer();
+}
+
+/*
+** ===================================================================
+**     Event       :  AS1_OnBlockSent (module Events)
+**
+**     Component   :  AS1 [Serial_LDD]
+*/
+/*!
+**     @brief
+**         This event is called after the last character from the
+**         output buffer is moved to the transmitter. 
+**     @param
+**         UserDataPtr     - Pointer to the user or
+**                           RTOS specific data. This pointer is passed
+**                           as the parameter of Init method.
+*/
+/* ===================================================================*/
+void AS1_OnBlockSent(LDD_TUserData *UserDataPtr)
+{
+  /* Write your code here ... */
 }
 
 /* END Events */

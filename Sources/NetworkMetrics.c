@@ -369,11 +369,21 @@ void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
 	}
 
 	// Rule #3
-	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND)
+	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND && config.PrioDevice[deviceNr])
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 		{
 			wirelessLinksToUse[i] = true;
+		}
+	}
+	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND)
+	{
+		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+		{
+			if(deviceNr == i)
+				wirelessLinksToUse[i] = true;
+			else
+				wirelessLinksToUse[i] = false;
 		}
 	}
 

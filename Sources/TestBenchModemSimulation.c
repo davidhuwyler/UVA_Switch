@@ -5,7 +5,7 @@
  *      Author: dave
  */
 #include "PackageHandler.h"
-#include "RoutingAlgorithmTestBench.h"
+#include "TestBenchModemSimulation.h"
 #include "Config.h"
 
 /* global variables, only used in this file */
@@ -24,7 +24,7 @@ static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT
 *  This is only used, if the configuration ENABLE_ROUTING_ALGORITHM_TEST_BENCH is Enabled
 *  \return true, the byte should get used
 */
-bool RoutingAlgorithmTestBench_getByteReceivePermission(uint8_t wirelessNr)
+bool TestBenchModemSimulation_getByteReceivePermission(uint8_t wirelessNr)
 {
 #ifdef USE_BYTE_LEVEL_ERRORS
 	static uint16_t byteErrorPatternIndex[4];
@@ -61,7 +61,7 @@ bool RoutingAlgorithmTestBench_getByteReceivePermission(uint8_t wirelessNr)
 *  This is only used, if the configuration ENABLE_ROUTING_ALGORITHM_TEST_BENCH is Enabled
 *  \return true, the byte should get used
 */
-bool RoutingAlgorithmTestBench_getPacketReceivePermission()
+bool TestBenchModemSimulation_getPacketReceivePermission()
 {
 
 }
@@ -72,7 +72,7 @@ bool RoutingAlgorithmTestBench_getPacketReceivePermission()
 *  It returns a varialble delay time for the Task, to sumulate different latecies of modems
 *  \return taskt delay for the network handler
 */
-uint16_t RoutingAlorithmTestBench_getNetworkHandlerDelay(void)
+uint16_t TestBenchModemSimulation_getNetworkHandlerDelay(void)
 {
 	static uint16_t delayPatternIndex = 0;
 	uint16_t delay;

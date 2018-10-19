@@ -5,8 +5,8 @@
  *      Author: dave
  */
 
-#ifndef HEADERS_ROUTINGALGORITHMTESTBENCH_H_
-#define HEADERS_ROUTINGALGORITHMTESTBENCH_H_
+#ifndef HEADERS_TESTBENCHMODEMSIMULATION_H_
+#define HEADERS_TESTBENCHMODEMSIMULATION_H_
 
 
 #define BYTE_ERROR_TEST_PATTERN_LENGTH 20
@@ -23,7 +23,7 @@
 *  This is only used, if the configuration ENABLE_ROUTING_ALGORITHM_TEST_BENCH is Enabled
 *  \return true, the byte should get used
 */
-bool RoutingAlgorithmTestBench_getByteReceivePermission(uint8_t wirelessNr);
+bool TestBenchModemSimulation_getByteReceivePermission(uint8_t wirelessNr);
 
 /*!
 * \fn uint16_t RoutingAlorithmTestBench_getNetworkHandlerDelay(void)
@@ -31,6 +31,6 @@ bool RoutingAlgorithmTestBench_getByteReceivePermission(uint8_t wirelessNr);
 *  It returns a varialble delay time for the Task, to sumulate different latecies of modems
 *  \return taskt delay for the network handler
 */
-uint16_t RoutingAlorithmTestBench_getNetworkHandlerDelay(void);
+uint16_t TestBenchModemSimulation_getNetworkHandlerDelay(void);
 
-#endif /* HEADERS_ROUTINGALGORITHMTESTBENCH_H_ */
+#endif /* HEADERS_TESTBENCHMODEMSIMULATION_H_ */
