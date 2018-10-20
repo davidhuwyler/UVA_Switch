@@ -53,53 +53,53 @@ void testBenchMaster_TaskEntry(void* p)
 	TickType_t xLastWakeTime = xTaskGetTickCount(); /* Initialize the lastWakeTime variable with the current time. */
 	char infoBuf[100];
 	uint16_t nofBytesInUARTbuffer;
+	uint8_t dataByte;
 
-	static bool toggle = false;
+	static bool updatePrints;
+	static uint16_t incommingBytes = 0, outgoningBytes = 0;
+
 	for(;;)
 	{
-		uint16_t incommingBytes = 0, outgoningBytes = 0;
-
 		vTaskDelayUntil( &xLastWakeTime, taskInterval ); /* Wait for the next cycle */
 		updateTime();
 
 		//Receive the UART input to use for the Routing Algorthm TestBench (Test Data)
 		receivedUARTbyteForTesting(&nofBytesInUARTbuffer);
 
-
-		if(uartNewTestDataBytes[0] || numberOfBytesInRxByteQueue(MAX_14830_WIRELESS_SIDE, 1))
+		//Send Bytes into the Testbench
+		for(int i = 0; i<nofBytesInUARTbuffer; i++)
 		{
-			for(int i = 0; i<nofBytesInUARTbuffer; i++)
+			outgoningBytes++;
+			pushToByteQueue(MAX_14830_DEVICE_SIDE,1,&uartNewTestDataBytes[i]);
+			pushToByteQueue(MAX_14830_DEVICE_SIDE,0,&uartNewTestDataBytes[i]);  //Debug
+			putByteIntoTestBenchSendBuffer(uartNewTestDataBytes[i],1);
+		}
+
+		//Get Bytes back from Testbench
+		while (popFromByteQueue(MAX_14830_WIRELESS_SIDE, 1, &dataByte) == pdTRUE)
+		{
+			uint32_t latency;
+			incommingBytes++;
+
+			pushToByteQueue(MAX_14830_DEVICE_SIDE,3,&dataByte); //Debug
+
+			if(getByteFromTestBenchSendBuffer(&dataByte,1,&latency))
 			{
-				outgoningBytes++;
-				pushToByteQueue(MAX_14830_DEVICE_SIDE,1,&uartNewTestDataBytes[i]);
-				pushToByteQueue(MAX_14830_DEVICE_SIDE,0,&uartNewTestDataBytes[i]);
-				putByteIntoTestBenchSendBuffer(uartNewTestDataBytes[i],1);
+				updateAverageLatency(latency,1);
 			}
 
-			while(numberOfBytesInRxByteQueue(MAX_14830_WIRELESS_SIDE, 1))
-			//for(int i = 0; i<numberOfBytesInRxByteQueue(MAX_14830_WIRELESS_SIDE, 1); i++)
-			{
-				uint64_t latency;
-				uint8_t dataByte;
-				incommingBytes++;
+			updatePrints = true;
+		}
 
-				if(popFromByteQueue(MAX_14830_WIRELESS_SIDE,1,&dataByte) == pdTRUE)
-				{
-					pushToByteQueue(MAX_14830_DEVICE_SIDE,3,&dataByte);
 
-					if(getByteFromTestBenchSendBuffer(&dataByte,1,&latency))
-					{
-						updateAverageLatency(latency,1);
-					}
-				}
-			}
-
+		//Print out results
+		if(updatePrints)
+		{
+			updatePrints = false;
 			XF1_xsprintf(infoBuf, "\nOutgoingBytes %u   IncommingBytes %u ",outgoningBytes,incommingBytes);
 			pushMsgToShellQueue(infoBuf);
 			updateTestResults();
-
 		}
-
 	}
 }
 
@@ -124,9 +124,7 @@ void testBenchMaster_TaskInit(void)
 
 static void receivedUARTbyteForTesting(uint16_t* nofBytesInBuffer)
 {
-	static uint8_t uartReceiveBufferHWOld[NOF_BYTES_UART_RECEIVE_BUFFER];
 	uint16_t newDataIndex = 0;
-
 	uint16_t currentIndexInUARTrecFIFO = AS1_GetReceivedDataNum(AS1_DeviceData);
 	static uint16_t oldIndexInUARTrecFIFO = 0;
 
@@ -160,22 +158,6 @@ static void receivedUARTbyteForTesting(uint16_t* nofBytesInBuffer)
 
 	oldIndexInUARTrecFIFO = currentIndexInUARTrecFIFO;
 	*nofBytesInBuffer = newDataIndex;
-//-------------
-//	for(int i = 0 ; i<NOF_BYTES_UART_RECEIVE_BUFFER; i++)
-//	{
-//		if(uartReceiveBufferHWOld[i] != uartReceiveBufferHW[i])
-//		{
-//			uartNewTestDataBytes[newDataIndex]=uartReceiveBufferHW[i];
-//			newDataIndex ++;
-//		}
-//		uartReceiveBufferHWOld[i] = uartReceiveBufferHW[i];
-//		//uartReceiveBufferHW[i] = 0;
-//	}
-//	for(int i = newDataIndex; i< NOF_BYTES_UART_RECEIVE_BUFFER; i++)
-//	{
-//		uartNewTestDataBytes[i]=0;
-//	}
-//	*nofBytesInBuffer = newDataIndex;
 }
 
 /*!
@@ -293,11 +275,11 @@ static void updateAverageLatency(uint64_t latencyCurrentByte,uint8_t uartNr)
 		averageLatency[uartNr] = (float)latencyCurrentByte;
 	else if(averageLatency[uartNr]<latencyCurrentByte)
 	{
-		averageLatency[uartNr] += ((float)latencyCurrentByte*(1/(float)receivedBytesCounter[uartNr]));
+		averageLatency[uartNr] += ((float)latencyCurrentByte/((float)receivedBytesCounter[uartNr]));
 	}
 	else
 	{
-		averageLatency[uartNr] -= ((float)latencyCurrentByte*(1/(float)receivedBytesCounter[uartNr]));
+		averageLatency[uartNr] -= ((float)latencyCurrentByte/((float)receivedBytesCounter[uartNr]));
 	}
 
 }
