@@ -11,13 +11,16 @@
 
 #include <stdint.h>
 #include "PackageHandler.h"
-
+#include "TestBenchMaster.h"
 
 /*! \def PACKAGE_BUFFER_SIZE
 *  \brief BufferSize in packages
 */
+#ifdef UAV_SWITCH_IS_TESTBENCH_MASTER
+#define PACKAGE_BUFFER_SIZE					1
+#else
 #define PACKAGE_BUFFER_SIZE					130
-
+#endif
 typedef struct sPackageBuffer
 {
 	tWirelessPackage packageArray[PACKAGE_BUFFER_SIZE];     		// data buffer

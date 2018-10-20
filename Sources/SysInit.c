@@ -109,6 +109,13 @@ static bool createAllTasks(void)
 		/* create network handler task */
 		if (xTaskCreateStatic(transportHandler_TaskEntry, "Transport_Handler", TRANSPORT_HANDLER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferTransportHandler, &pxTaskBufferTransportHandler) == NULL) {
 			for(;;) {}} /* error */
+
+		/* create throughput printout task */
+		if(config.GenerateDebugOutput == DEBUG_OUTPUT_FULLLY_ENABLED)
+		{
+			if (xTaskCreateStatic(throughputPrintout_TaskEntry, "Throughput_Printout", THROUGHPUT_PRINTOUT_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, puxStackBufferThroughputPrintout, &pxTaskBufferThroughputPrintout) == NULL) {
+				for(;;) {}} /* error */
+		}
 	}
 	else
 	{
@@ -117,12 +124,7 @@ static bool createAllTasks(void)
 			for(;;) {}} /* error */
 	}
 
-	/* create throughput printout task */
-	if(config.GenerateDebugOutput == DEBUG_OUTPUT_FULLLY_ENABLED)
-	{
-		if (xTaskCreateStatic(throughputPrintout_TaskEntry, "Throughput_Printout", THROUGHPUT_PRINTOUT_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, puxStackBufferThroughputPrintout, &pxTaskBufferThroughputPrintout) == NULL) {
-			for(;;) {}} /* error */
-	}
+
 
 	/* create logger task */
 	if(config.LoggingEnabled)
