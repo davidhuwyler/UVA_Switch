@@ -11,7 +11,7 @@
 #include "Config.h"
 
 
-#define UAV_SWITCH_IS_TESTBENCH_MASTER
+//#define UAV_SWITCH_IS_TESTBENCH_MASTER
 
 #ifdef UAV_SWITCH_IS_TESTBENCH_MASTER
 #pragma message ( "Device is configured as Testbench Master! No Normal Operation possible" )

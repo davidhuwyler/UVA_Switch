@@ -48,7 +48,7 @@ static uint16_t getLostPackages(uint8_t uartNr);
 * 		 _____|_|_|_|_______			 _____|_|_|_|_______
 * 		|	DeviceSide		|			|	DeviceSide		|
 * 		|					|   4xUART	|					|
-* 		|	DUT UAV Switch	|___________|	 UAV Switch		|
+* 		|	DUT UAV Switch	|___________|	UAV Switch		|
 * 	 	|					|___________|	Modem Simulator	|
 * 		|					|___________|	 				|
 * 		|			   Modem|___________|Modem				|
@@ -80,12 +80,12 @@ void testBenchMaster_TaskEntry(void* p)
 			//Send Bytes into the Testbench
 			if(config.testBenchMasterUsedChannels[i])
 			{
-				for(int i = 0; i<nofBytesInUARTbuffer; i++)
+				for(int j = 0; j<nofBytesInUARTbuffer; j++)
 				{
-					if(pushToByteQueue(MAX_14830_DEVICE_SIDE,i,&uartNewTestDataBytes[i]) == pdPASS)
+					if(pushToByteQueue(MAX_14830_DEVICE_SIDE,i,&uartNewTestDataBytes[j]) == pdPASS)
 					{
 						outgoningBytes++;
-						putByteIntoTestBenchSendBuffer(uartNewTestDataBytes[i],1);
+						putByteIntoTestBenchSendBuffer(uartNewTestDataBytes[j],1);
 					}
 					else
 					{
@@ -94,7 +94,7 @@ void testBenchMaster_TaskEntry(void* p)
 					}
 
 					//Debug: Send Byte also to Device 0
-					if(pushToByteQueue(MAX_14830_DEVICE_SIDE,0,&uartNewTestDataBytes[i]) != pdPASS)
+					if(pushToByteQueue(MAX_14830_DEVICE_SIDE,0,&uartNewTestDataBytes[j]) != pdPASS)
 					{
 						XF1_xsprintf(infoBuf, "Lost Byte! Cannot insert in ByteQueue0 for sending");
 						pushMsgToShellQueue(infoBuf);
