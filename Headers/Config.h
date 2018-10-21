@@ -47,6 +47,7 @@ typedef struct Configurations {
    bool TestHwLoopbackOnly;
    bool EnableStressTest;
    tTestBenchRoutingAlgorithmModes EnableRoutingAlgorithmTestBench;
+   int testBenchMasterUsedChannels[NUMBER_OF_UARTS];
    tDebugOutput GenerateDebugOutput;
    bool LoggingEnabled;
    int SdCardSyncInterval_s; // [s]

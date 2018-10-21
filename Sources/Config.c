@@ -194,6 +194,10 @@ bool readConfig(void)
 			config.EnableRoutingAlgorithmTestBench = TESTBENCH_OFF; /* ROUTING_METHODE_HARD_RULES if parameter faulty */
   	}
 
+  	/* TEST_BENCH_MASTER_USED_CHANNEL  */
+    numberOfCharsCopied = MINI_ini_gets("SoftwareConfiguration", "TEST_BENCH_MASTER_USED_CHANNEL",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+  	csvToInt(copiedCsv, config.testBenchMasterUsedChannels);
+
   	/* GENERATE_DEBUG_OUTPUT */
   	config.GenerateDebugOutput = MINI_ini_getl("SoftwareConfiguration", "GENERATE_DEBUG_OUTPUT",  DEFAULT_BOOL, "serialSwitch_Config.ini");
   	switch(config.GenerateDebugOutput)

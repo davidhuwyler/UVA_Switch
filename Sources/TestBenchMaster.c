@@ -25,8 +25,8 @@ static float averageLatency[NUMBER_OF_UARTS];
 static void receivedUARTbyteForTesting(uint16_t* nofBytesInBuffer);
 static void updateTime(void);
 static void putByteIntoTestBenchSendBuffer(uint8_t databyte, uint8_t uartNr);
-static bool getByteFromTestBenchSendBuffer(uint8_t* databyte, uint8_t uartNr,uint64_t* byteLatency);
-static void updateAverageLatency(uint64_t latencyCurrentByte,uint8_t uartNr);
+static bool getByteFromTestBenchSendBuffer(uint8_t* databyte, uint8_t uartNr,uint32_t* byteLatency);
+static void updateAverageLatencyAndByteCouter(uint64_t latencyCurrentByte,uint8_t uartNr);
 static void updateTestResults(void);
 static uint16_t getLostPackages(uint8_t uartNr);
 
@@ -34,16 +34,25 @@ static uint16_t getLostPackages(uint8_t uartNr);
 * \fn testBenchMaster_TaskEntry(void* p)
 * \brief TestBench Master to test the different Routing Algorithms
 * The UAV Switches are connected like the Picture below
-* 		 ___________________________________________________
+*
+* 				 UART TestBench Data (Input) 56700 Baud
+* 								  |
+* 		 _________________________|__________________________
 * 		| UAV Switch TestBench Master						|
+* 		|													|
+* 		|													|
 * 		|  DeviceSide						ModemSide		|
 * 		|___________________________________________________|
 * 			  | | | |						  | | | |
+* 			  | | | | 4xUART				  | | | | 4xUART
 * 		 _____|_|_|_|_______			 _____|_|_|_|_______
-* 		|	DUT UAV Switch	|-----------|	 UAV Switch 	|
-* 		|					|-----------|	 Modem Simulator|
-* 		|			Modem	|-----------|	Modem			|
-* 		|			Side	|-----------|	Side			|
+* 		|	DeviceSide		|			|	DeviceSide		|
+* 		|					|   4xUART	|					|
+* 		|	DUT UAV Switch	|___________|	 UAV Switch		|
+* 	 	|					|___________|	Modem Simulator	|
+* 		|					|___________|	 				|
+* 		|			   Modem|___________|Modem				|
+* 		|				Side|			|Side				|
 * 		|___________________|			|___________________|
 *
 */
@@ -55,7 +64,7 @@ void testBenchMaster_TaskEntry(void* p)
 	uint16_t nofBytesInUARTbuffer;
 	uint8_t dataByte;
 
-	static bool updatePrints;
+	static bool updatePrintoutsFlag;
 	static uint16_t incommingBytes = 0, outgoningBytes = 0;
 
 	for(;;)
@@ -66,43 +75,64 @@ void testBenchMaster_TaskEntry(void* p)
 		//Receive the UART input to use for the Routing Algorthm TestBench (Test Data)
 		receivedUARTbyteForTesting(&nofBytesInUARTbuffer);
 
-		//Send Bytes into the Testbench
-		for(int i = 0; i<nofBytesInUARTbuffer; i++)
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 		{
-			outgoningBytes++;
-			pushToByteQueue(MAX_14830_DEVICE_SIDE,1,&uartNewTestDataBytes[i]);
-			pushToByteQueue(MAX_14830_DEVICE_SIDE,0,&uartNewTestDataBytes[i]);  //Debug
-			putByteIntoTestBenchSendBuffer(uartNewTestDataBytes[i],1);
-		}
-
-		//Get Bytes back from Testbench
-		while (popFromByteQueue(MAX_14830_WIRELESS_SIDE, 1, &dataByte) == pdTRUE)
-		{
-			uint32_t latency;
-			incommingBytes++;
-
-			pushToByteQueue(MAX_14830_DEVICE_SIDE,3,&dataByte); //Debug
-
-			if(getByteFromTestBenchSendBuffer(&dataByte,1,&latency))
+			//Send Bytes into the Testbench
+			if(config.testBenchMasterUsedChannels[i])
 			{
-				updateAverageLatency(latency,1);
+				for(int i = 0; i<nofBytesInUARTbuffer; i++)
+				{
+					if(pushToByteQueue(MAX_14830_DEVICE_SIDE,i,&uartNewTestDataBytes[i]) == pdPASS)
+					{
+						outgoningBytes++;
+						putByteIntoTestBenchSendBuffer(uartNewTestDataBytes[i],1);
+					}
+					else
+					{
+						XF1_xsprintf(infoBuf, "Lost Byte! Cannot insert in ByteQueue %u for sending",i);
+						pushMsgToShellQueue(infoBuf);
+					}
+
+					//Debug: Send Byte also to Device 0
+					if(pushToByteQueue(MAX_14830_DEVICE_SIDE,0,&uartNewTestDataBytes[i]) != pdPASS)
+					{
+						XF1_xsprintf(infoBuf, "Lost Byte! Cannot insert in ByteQueue0 for sending");
+						pushMsgToShellQueue(infoBuf);
+					}
+				}
 			}
 
-			updatePrints = true;
+			//Get Bytes back from Testbench
+			while (popFromByteQueue(MAX_14830_WIRELESS_SIDE, i, &dataByte) == pdTRUE)
+			{
+				uint32_t latency;
+				incommingBytes++;
+
+				//Debug: Send byte out again on device 3
+				pushToByteQueue(MAX_14830_DEVICE_SIDE,3,&dataByte);
+
+				if(getByteFromTestBenchSendBuffer(&dataByte,i,&latency))
+				{
+					updateAverageLatencyAndByteCouter(latency,1);
+				}
+
+				updatePrintoutsFlag = true;
+			}
+
+			//Update Lost bytes
+			nofLostBytes[i] = nofLostBytes[i] + getLostPackages(i);
 		}
 
-
 		//Print out results
-		if(updatePrints)
+		if(updatePrintoutsFlag)
 		{
-			updatePrints = false;
+			updatePrintoutsFlag = false;
 			XF1_xsprintf(infoBuf, "\nOutgoingBytes %u   IncommingBytes %u ",outgoningBytes,incommingBytes);
 			pushMsgToShellQueue(infoBuf);
 			updateTestResults();
 		}
 	}
 }
-
 
 /*!
 * \fn  testBenchMaster_TaskInit(void)
@@ -121,43 +151,53 @@ void testBenchMaster_TaskInit(void)
 	}
 }
 
-
+/*!
+* \fn  void receivedUARTbyteForTesting(uint16_t* nofBytesInBuffer)
+* \brief get data from the UART Port. This is the Data to be inserted into the Testbench
+* 		 either from a external PC or from a Serial Recorder
+*/
 static void receivedUARTbyteForTesting(uint16_t* nofBytesInBuffer)
 {
-	uint16_t newDataIndex = 0;
+	uint16_t newDataSize = 0;
 	uint16_t currentIndexInUARTrecFIFO = AS1_GetReceivedDataNum(AS1_DeviceData);
 	static uint16_t oldIndexInUARTrecFIFO = 0;
 
+	//if(oldIndexInUARTrecFIFO==currentIndexInUARTrecFIFO) -> Do Nothing, No new Data
+
+	//Copy The UART data out of the Buffer
+	//No buffer overflow
 	if(oldIndexInUARTrecFIFO<currentIndexInUARTrecFIFO)
 	{
 		for(int i = oldIndexInUARTrecFIFO  ; i<currentIndexInUARTrecFIFO; i++)
 		{
-			uartNewTestDataBytes[newDataIndex]=uartReceiveBufferHW[i];
-			newDataIndex ++;
+			uartNewTestDataBytes[newDataSize]=uartReceiveBufferHW[i];
+			newDataSize ++;
 		}
 	}
+
+	//Buffer overflow...
 	else if(oldIndexInUARTrecFIFO>currentIndexInUARTrecFIFO)
 	{
 		for(int i = oldIndexInUARTrecFIFO  ; i<NOF_BYTES_UART_RECEIVE_BUFFER; i++)
 		{
-			uartNewTestDataBytes[newDataIndex]=uartReceiveBufferHW[i];
-			newDataIndex ++;
+			uartNewTestDataBytes[newDataSize]=uartReceiveBufferHW[i];
+			newDataSize ++;
 		}
 		for(int i = 0 ; i<currentIndexInUARTrecFIFO; i++)
 		{
-			uartNewTestDataBytes[newDataIndex]=uartReceiveBufferHW[i];
-			newDataIndex ++;
+			uartNewTestDataBytes[newDataSize]=uartReceiveBufferHW[i];
+			newDataSize ++;
 		}
 	}
 
-
-	for(int i = newDataIndex; i< NOF_BYTES_UART_RECEIVE_BUFFER; i++)
+	//Clear unused Part of the Buffer
+	for(int i = newDataSize; i< NOF_BYTES_UART_RECEIVE_BUFFER; i++)
 	{
 		uartNewTestDataBytes[i]=0;
 	}
 
 	oldIndexInUARTrecFIFO = currentIndexInUARTrecFIFO;
-	*nofBytesInBuffer = newDataIndex;
+	*nofBytesInBuffer = newDataSize;
 }
 
 /*!
@@ -201,7 +241,7 @@ static void putByteIntoTestBenchSendBuffer(uint8_t databyte, uint8_t uartNr)
 * 		 buffer, it gets deleted and true is returned.
 * 		 If the byte is multiple times in the buffer, the oldes instance is deleted.
 */
-static bool getByteFromTestBenchSendBuffer(uint8_t* databyte, uint8_t uartNr,uint64_t* byteLatency)
+static bool getByteFromTestBenchSendBuffer(uint8_t* databyte, uint8_t uartNr,uint32_t* byteLatency)
 {
 	uint16_t usedIndex = 0;
 	tTestBenchByteBufferEntry searchedEntry;
@@ -232,9 +272,13 @@ static bool getByteFromTestBenchSendBuffer(uint8_t* databyte, uint8_t uartNr,uin
 	{
 		return false;
 	}
-
 }
 
+/*!
+* \fn  uint16_t getLostPackages(uint8_t uartNr)
+* \brief checks the sendBuffer[] if there are older bytes than the Timeout (TIMEOUT_FOR_BYTES_TO_GO_THROUGH_TESTBENCH)
+* 		 older Bytes are counted and deleted. The number deleted (== lost) Bytes is returned.
+*/
 static uint16_t getLostPackages(uint8_t uartNr)
 {
 	uint16_t numberOfLostPacks = 0;
@@ -251,6 +295,10 @@ static uint16_t getLostPackages(uint8_t uartNr)
 	return numberOfLostPacks;
 }
 
+/*!
+* \fn  void updateTime(void)
+* \brief updated the time_ms variable to hold the time since boot
+*/
 static void updateTime(void)
 {
 	static uint16_t lastOsTick = 0, newOsTick;
@@ -267,8 +315,11 @@ static void updateTime(void)
 	lastOsTick = newOsTick;
 }
 
-
-static void updateAverageLatency(uint64_t latencyCurrentByte,uint8_t uartNr)
+/*!
+* \fn  void updateAverageLatencyAndByteCouter(uint64_t latencyCurrentByte,uint8_t uartNr)
+* \brief calculates the average latency per channel (uartNR)
+*/
+static void updateAverageLatencyAndByteCouter(uint64_t latencyCurrentByte,uint8_t uartNr)
 {
 	receivedBytesCounter[uartNr]++;
 	if(receivedBytesCounter[uartNr] == 1)
@@ -284,14 +335,13 @@ static void updateAverageLatency(uint64_t latencyCurrentByte,uint8_t uartNr)
 
 }
 
+/*!
+* \fn  void updateTestResults(void)
+* \brief prints out the current results
+*/
 static void updateTestResults(void)
 {
 	char infoBuf[200];
-	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
-	{
-		nofLostBytes[i] = nofLostBytes[i] + getLostPackages(i);
-	}
-
 	XF1_xsprintf(infoBuf, "\nRec.Bytes: %u %u %u %u   LostBytes: %u %u %u %u   Av.Latency: %f %f %f %f",receivedBytesCounter[0],receivedBytesCounter[1],receivedBytesCounter[2],receivedBytesCounter[3],nofLostBytes[0],nofLostBytes[1],nofLostBytes[2],nofLostBytes[3],averageLatency[0],averageLatency[1],averageLatency[2],averageLatency[3]);
 	pushMsgToShellQueue(infoBuf);
 }

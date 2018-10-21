@@ -120,7 +120,7 @@ static bool createAllTasks(void)
 	else
 	{
 		/* create test bench master task */
-		if (xTaskCreateStatic(testBenchMaster_TaskEntry, "TestBench_Master", TESTBENCHMASTER_STACK_SIZE, NULL, tskIDLE_PRIORITY+2, puxStackBufferTestBenchMaster, &pxTaskBufferTestBenchMaster) == NULL) {
+		if (xTaskCreateStatic(testBenchMaster_TaskEntry, "TestBench_Master", TESTBENCHMASTER_STACK_SIZE, NULL, tskIDLE_PRIORITY+3, puxStackBufferTestBenchMaster, &pxTaskBufferTestBenchMaster) == NULL) {
 			for(;;) {}} /* error */
 	}
 
