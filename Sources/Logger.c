@@ -16,12 +16,16 @@ static const char* const queueNameSentPackages[] = {"SentPackagesForLogging0", "
 static const char* const queueNameSentBytes[] = {"SentBytesForLogging0", "SentBytesForLogging1", "SentBytesForLogging2", "SentBytesForLogging3"};
 static const char* const queueNameReceivedBytes[] = {"ReceivedBytesForLogging0", "ReceivedBytesForLogging1", "ReceivedBytesForLogging2", "ReceivedBytesForLogging3"};
 
+#ifdef DO_PACK_AND_BYTE_LOGGING
 static const char* const filenameReceivedPackagesLogger[] = {"./rxPakWl0.log", "./rxPakWl1.log", "./rxPakWl2.log", "./rxPakWl3.log"};
 static const char* const filenameSentPackagesLogger[] = {"./txPakWl0.log", "./txPakWl1.log", "./txPakWl2.log", "./txPakWl3.log"};
 static const char* const filenameReceivedBytesLogger[] = {"./rxBytWl0.log", "./rxBytWl1.log", "./rxBytWl2.log", "./rxBytWl3.log"};
 static const char* const filenameSentBytesLogger[] = {"./txBytWl0.log", "./txBytWl1.log", "./txBytWl2.log", "./txBytWl3.log"};
+#endif
 
-static const char* const filenameOverviewLogger = {"./Overview.log"};
+#ifdef DO_OVERVIEW_LOGGING
+static const char* const filenameOverviewLogger = {"./LogFile_Overview.log"};
+#endif
 
 static xQueueHandle queuePackagesToLog[2][NUMBER_OF_UARTS];  /* queuePackagesToLog[0] = received packages, queuePackagesToLog[1] = sent packages */
 static xQueueHandle queueBytesToLog[2][1]; /* queueBytesToLog[0] = received bytes, queueBytesToLog[1] = sent bytes */
@@ -34,8 +38,14 @@ static uint16_t wirelessLinkReceivedPackCounter[NUMBER_OF_UARTS];
 static uint16_t deviceFailedToSendPackCounter[NUMBER_OF_UARTS];
 static uint16_t wirelessLinkReceivedFaultyPackCounter[NUMBER_OF_UARTS];
 static uint16_t deviceDeletedPacksOutOfOrder[NUMBER_OF_UARTS];
-static uint64_t accumulatedLatencyAllPacks[NUMBER_OF_UARTS];
-static uint16_t averageLatencyPerWirelessChannel[NUMBER_OF_UARTS];
+static uint64_t accumulatedModemLatencyAllPacks[NUMBER_OF_UARTS];
+static uint16_t averageModemLatencyPerWirelessChannel[NUMBER_OF_UARTS];
+static uint16_t numberOfModemLatencySambles[NUMBER_OF_UARTS];
+
+static uint64_t accumulatedDeviceLatencyAllPacks[NUMBER_OF_UARTS];
+static uint16_t averageDeviceLatencyPerWirelessChannel[NUMBER_OF_UARTS];
+static uint16_t numberOfDeviceLatencySambles[NUMBER_OF_UARTS];
+
 static SemaphoreHandle_t loggerSemaphore;
 static uint32_t overviewLogFileStartAtBoot;
 
@@ -65,6 +75,7 @@ void logger_TaskEntry(void* p)
 
 	/* write log header into files */
 	/* open file and move to end of file */
+#ifdef DO_OVERVIEW_LOGGING
 	if (FAT1_open(&filOverviewLogger, filenameOverviewLogger, FA_OPEN_ALWAYS|FA_WRITE)!=FR_OK) /* open file */
 		while(1){}
 	if (FAT1_lseek(&filOverviewLogger, FAT1_f_size(&filOverviewLogger)) != FR_OK || filOverviewLogger.fptr != FAT1_f_size(&filOverviewLogger)) /* move to the end of file */
@@ -74,7 +85,9 @@ void logger_TaskEntry(void* p)
 		FAT1_sync(&filOverviewLogger);
 	}
 	overviewLogFileStartAtBoot = FAT1_f_size(&filOverviewLogger);
+#endif
 
+#ifdef DO_PACK_AND_BYTE_LOGGING
 	for(int uartNr = 0; uartNr < NUMBER_OF_UARTS; uartNr++)
 	{
 
@@ -119,7 +132,7 @@ void logger_TaskEntry(void* p)
 			FAT1_sync(&filBytes[RECEIVED_PACKAGE][uartNr]);
 		}
 	}
-
+#endif
 
 	/* ------------- endless loop ----------------------- */
 
@@ -132,6 +145,7 @@ void logger_TaskEntry(void* p)
 		for(int uartNr = 0; uartNr < NUMBER_OF_UARTS; uartNr++)
 		{
 			/* write string of packages into buffer */
+#ifdef DO_PACK_AND_BYTE_LOGGING
 			logPackages(queuePackagesToLog[SENT_PACKAGE][uartNr], &filPacks[SENT_PACKAGE][uartNr], filenameSentPackagesLogger[uartNr]);
 			logPackages(queuePackagesToLog[RECEIVED_PACKAGE][uartNr], &filPacks[RECEIVED_PACKAGE][uartNr], filenameReceivedPackagesLogger[uartNr]);
 			if(uartNr==0)
@@ -139,9 +153,11 @@ void logger_TaskEntry(void* p)
 				logBytes(queueBytesToLog[SENT_PACKAGE][uartNr], &filBytes[SENT_PACKAGE][uartNr], filenameSentBytesLogger[uartNr]);
 				logBytes(queueBytesToLog[RECEIVED_PACKAGE][uartNr], &filBytes[RECEIVED_PACKAGE][uartNr], filenameReceivedBytesLogger[uartNr]);
 			}
+#endif
 			/* SD_CARD_WRITE_INTERVAL_MS passed? -> sync file system*/
 			if(xTaskGetTickCount() - timestampLastLog >= pdMS_TO_TICKS(config.SdCardSyncInterval_s*1000) )
 			{
+#ifdef DO_PACK_AND_BYTE_LOGGING
 				if(uartNr == 0)
 				{
 					FAT1_sync(&filBytes[SENT_PACKAGE][uartNr]);
@@ -149,9 +165,11 @@ void logger_TaskEntry(void* p)
 				}
 				FAT1_sync(&filPacks[SENT_PACKAGE][uartNr]);
 				FAT1_sync(&filPacks[RECEIVED_PACKAGE][uartNr]);
-
+#endif
+#ifdef DO_OVERVIEW_LOGGING
 				updateOverviewLog(&filOverviewLogger,filenameOverviewLogger);
 				FAT1_sync(&filOverviewLogger);
+#endif
 				timestampLastLog = xTaskGetTickCount();
 			}
 		}
@@ -445,7 +463,10 @@ void updateOverviewLog(FIL* filePointer, char* fileName)
 	uint16_t copyWirelessLinkReceivedPackCounter[NUMBER_OF_UARTS];
 	uint16_t copyDeviceFailedToSendPackCounter[NUMBER_OF_UARTS];
 	uint16_t copyWirelessLinkReceivedFaultyPackCounter[NUMBER_OF_UARTS];
-	uint64_t copyAccumulatedLatencyAllPacks[NUMBER_OF_UARTS];
+	uint64_t copyAccumulatedModemLatencyAllPacks[NUMBER_OF_UARTS];
+	uint16_t copyNumberOfModemLatencySambles[NUMBER_OF_UARTS];
+	uint64_t copyAccumulatedDeviceLatencyAllPacks[NUMBER_OF_UARTS];
+	uint16_t copyNumberOfDeviceLatencySambles[NUMBER_OF_UARTS];
 
 	FRTOS_xSemaphoreTake(loggerSemaphore,50);
 	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
@@ -456,7 +477,10 @@ void updateOverviewLog(FIL* filePointer, char* fileName)
 		copyWirelessLinkReceivedPackCounter[i] = wirelessLinkReceivedPackCounter[i];
 		copyDeviceFailedToSendPackCounter[i] = deviceFailedToSendPackCounter[i];
 		copyWirelessLinkReceivedFaultyPackCounter[i] = wirelessLinkReceivedFaultyPackCounter[i];
-		copyAccumulatedLatencyAllPacks[i] = accumulatedLatencyAllPacks[i];
+		copyAccumulatedModemLatencyAllPacks[i] = accumulatedModemLatencyAllPacks[i];
+		copyNumberOfModemLatencySambles[i] = numberOfModemLatencySambles[i];
+		copyAccumulatedDeviceLatencyAllPacks[i] = accumulatedDeviceLatencyAllPacks[i];
+		copyNumberOfDeviceLatencySambles[i] = numberOfDeviceLatencySambles[i];
 	}
 	FRTOS_xSemaphoreGive(loggerSemaphore);
 
@@ -523,22 +547,31 @@ void updateOverviewLog(FIL* filePointer, char* fileName)
 	UTIL1_strcat(logEntry, 500, "\r\nAverage latency (RRT) per Modem: ");
 	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 	{
-		averageLatencyPerWirelessChannel[i] = copyAccumulatedLatencyAllPacks[i]/copyDeviceFailedToSendPackCounter[i];
+		averageModemLatencyPerWirelessChannel[i] = copyAccumulatedModemLatencyAllPacks[i]/copyNumberOfModemLatencySambles[i];
 		strNum[0] = 0;
-		UTIL1_strcatNum16u(strNum, sizeof(strNum), averageLatencyPerWirelessChannel[i]);
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), averageModemLatencyPerWirelessChannel[i]);
 		UTIL1_strcat(logEntry, 500, strNum);
 		UTIL1_strcat(logEntry, 500, " ");
 	}
+	UTIL1_strcat(logEntry, 500, "\r\nAverage latency (RRT) DeviceToDevice: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		averageDeviceLatencyPerWirelessChannel[i] = copyAccumulatedDeviceLatencyAllPacks[i]/copyNumberOfDeviceLatencySambles[i];
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), averageDeviceLatencyPerWirelessChannel[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+
 
 	FAT1_lseek(filePointer, overviewLogFileStartAtBoot);
 	writeToFile(filePointer, fileName, logEntry);
 }
 
-void logger_incrementDeviceSentPack(tUartNr deviceNr,uint16_t latency)
+void logger_incrementDeviceSentPack(tUartNr deviceNr)
 {
 	FRTOS_xSemaphoreTake(loggerSemaphore,50);
 	deviceSentPackCounter[deviceNr] ++;
-	accumulatedLatencyAllPacks[deviceNr] += latency;
 	FRTOS_xSemaphoreGive(loggerSemaphore);
 }
 
@@ -582,6 +615,22 @@ void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr)
 {
 	FRTOS_xSemaphoreTake(loggerSemaphore,50);
 	deviceDeletedPacksOutOfOrder[deviceNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_logDeviceToDeviceLatency(tUartNr deviceNr,uint16_t latency)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	numberOfDeviceLatencySambles[deviceNr] ++;
+	accumulatedDeviceLatencyAllPacks[deviceNr] += latency;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_logModemLatency(tUartNr wirelessNr,uint16_t latency)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	numberOfModemLatencySambles[wirelessNr] ++;
+	accumulatedModemLatencyAllPacks[wirelessNr] += latency;
 	FRTOS_xSemaphoreGive(loggerSemaphore);
 }
 

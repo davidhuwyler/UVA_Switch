@@ -34,13 +34,17 @@ BaseType_t pushPackageToLoggerQueue(tWirelessPackage* pPackage, tRxTxPackage rxT
 BaseType_t pushByteToLoggerQueue(uint8_t byte, tRxTxPackage rxTxPackage, tUartNr wlConnNr);
 
 
-void logger_incrementDeviceSentPack(tUartNr deviceNr,uint16_t latency);
+void logger_incrementDeviceSentPack(tUartNr deviceNr);
 void logger_incrementDeviceReceivedPack(tUartNr deviceNr);
 void logger_incrementWirelessSentPack(tUartNr wireLessNr);
 void logger_incrementWirelessReceivedPack(tUartNr wireLessNr);
 void logger_incrementDeviceFailedToSendPack(tUartNr deviceNr);
 void logger_incremenReceivedFaultyPack(tUartNr wirelessNr);
 void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr);
+void logger_logModemLatency(tUartNr wirelessNr,uint16_t latency);
+
+//#define DO_PACK_AND_BYTE_LOGGING
+#define DO_OVERVIEW_LOGGING
 
 /*! \def MAX_DELAY_LOGGER_MS
 *  \brief Maximal delay on queue operations inside Logger task.
@@ -51,13 +55,19 @@ void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr);
 /*! \def QUEUE_NUM_OF_PACK_LOG_ENTRIES
 *  \brief Size of queue for log entries.
 *  */
+#ifdef DO_PACK_AND_BYTE_LOGGING
 #define QUEUE_NUM_OF_PACK_LOG_ENTRIES			(40)
-
+#else
+#define QUEUE_NUM_OF_PACK_LOG_ENTRIES			(1)
+#endif
 /*! \def QUEUE_NUM_OF_LOG_ENTRIES
 *  \brief Size of queue for log entries.
 *  */
+#ifdef DO_PACK_AND_BYTE_LOGGING
 #define QUEUE_NUM_OF_BYTE_LOG_ENTRIES			(2048)
-
+#else
+#define QUEUE_NUM_OF_BYTE_LOG_ENTRIES			(1)
+#endif
 /*! \def MAX_LOG_FILE_SIZE_BYTES
 *  \brief Maximum size of one log file before it is renamed and a new file is started.
 *  */
@@ -72,6 +82,8 @@ void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr);
 *  \brief Maximum delay that this task waits for successful queue operations
 *  */
 #define MAX_DELAY_LOGGER_MS 						0
+
+
 
 
 #endif

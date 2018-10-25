@@ -93,12 +93,19 @@ void networkHandler_TaskEntry(void* p)
 
 								tWirelessPackage tmpPack;
 								copyPackage(&package, &tmpPack);
+
+								//IF Acknowledge, safe the Modem which the Ack is sent with
+								if(tmpPack.packType == PACK_TYPE_REC_ACKNOWLEDGE)
+									tmpPack.payload[0] = wlConn;
+
+								//Send the Pack
 								if(sendGeneratedWlPackage(&tmpPack, wlConn) == false) /* send the generated package down and store it internally if ACK is configured */
 								{
 									/* package couldnt be sent and payload was freed! don't access package anymore! */
 									break; /* exit innner for loop */
 								}
 
+								//Logging...
 								if(tmpPack.packType == PACK_TYPE_DATA_PACKAGE)
 									logger_incrementWirelessSentPack(wlConn);
 								packSent = true;

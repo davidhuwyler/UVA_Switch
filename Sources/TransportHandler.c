@@ -161,8 +161,6 @@ void transportHandler_TaskEntry(void* p)
 						popFromReceivedPayloadPacksQueue(deviceNr, &package);
 						vPortFree(package.payload);
 						package.payload = NULL;
-
-						logger_incrementDeviceReceivedPack(package.devNum);
 					}
 				}
 
@@ -171,6 +169,7 @@ void transportHandler_TaskEntry(void* p)
 				{
 					uint16_t payloadNrToAck = package.payloadNr;
 					uint16_t payloadNrTransmissionOk = package.packNr;
+					uint8_t wirelessConnNr = package.payload[0];
 					bool gotApack = false;
 					popFromReceivedPayloadPacksQueue(deviceNr, &package);
 					vPortFree(package.payload);
@@ -184,10 +183,13 @@ void transportHandler_TaskEntry(void* p)
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
+
+						logger_incrementDeviceSentPack(package.devNum);
 						if(!gotApack)
 						{
 							gotApack = true;
-							logger_incrementDeviceSentPack(package.devNum,latency);
+							logger_logDeviceToDeviceLatency(package.devNum,latency);
+							logger_logModemLatency(wirelessConnNr,latency);
 						}
 					}
 				}
@@ -294,6 +296,7 @@ void transportHandler_TaskEntry(void* p)
 					pushPayloadOut(&package);
 					vPortFree(package.payload);
 					package.payload = NULL;
+					logger_incrementDeviceReceivedPack(package.devNum);
 				}
 				else
 				{	//If the TX Byte Queue hasnt enough space, the package gets reinserted into the Buffer
@@ -477,16 +480,13 @@ static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPac
 	pAckPack->devNum = pReceivedDataPack->devNum;
 	pAckPack->packNr = packageBuffer_getCurrentPayloadNR(&receiveBuffer[pReceivedDataPack->devNum]);
 	pAckPack->payloadNr = pReceivedDataPack->payloadNr;
-	pAckPack->payloadSize = sizeof(pAckPack->packNr);	/* as payload, the timestamp of the package to be acknowledged is saved */
+	pAckPack->payloadSize = sizeof(int8_t);	/* as payload, the sent Modem Numer is saved */
 	/* get space for acknowladge payload (which consists of packNr of datapackage*/
-	pAckPack->payload = (uint8_t*) FRTOS_pvPortMalloc(pAckPack->payloadSize*sizeof(int8_t));
+	pAckPack->payload = (uint8_t*) FRTOS_pvPortMalloc(sizeof(int8_t));
 	if(pAckPack->payload == NULL) /* malloc failed */
 		return false;
-	/* generate payload */
-	for (uint16_t cnt = 0; cnt < pAckPack->payloadSize; cnt++)
-	{
-		pAckPack->payload[cnt] = *((uint8_t*)(&pReceivedDataPack->packNr) + cnt);
-	}
+	/* the payload is filled in the network handler*/
+
 	return true;
 }
 
