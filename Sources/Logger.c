@@ -20,31 +20,62 @@ static const char* const filenameReceivedPackagesLogger[] = {"./rxPakWl0.log", "
 static const char* const filenameSentPackagesLogger[] = {"./txPakWl0.log", "./txPakWl1.log", "./txPakWl2.log", "./txPakWl3.log"};
 static const char* const filenameReceivedBytesLogger[] = {"./rxBytWl0.log", "./rxBytWl1.log", "./rxBytWl2.log", "./rxBytWl3.log"};
 static const char* const filenameSentBytesLogger[] = {"./txBytWl0.log", "./txBytWl1.log", "./txBytWl2.log", "./txBytWl3.log"};
+
+static const char* const filenameOverviewLogger = {"./Overview.log"};
+
 static xQueueHandle queuePackagesToLog[2][NUMBER_OF_UARTS];  /* queuePackagesToLog[0] = received packages, queuePackagesToLog[1] = sent packages */
 static xQueueHandle queueBytesToLog[2][1]; /* queueBytesToLog[0] = received bytes, queueBytesToLog[1] = sent bytes */
 static FAT1_FATFS fileSystemObject;
+
+static uint16_t deviceSentPackCounter[NUMBER_OF_UARTS];
+static uint16_t deviceReceivedPackCounter[NUMBER_OF_UARTS];
+static uint16_t wirelessLinkSentPackCounter[NUMBER_OF_UARTS];
+static uint16_t wirelessLinkReceivedPackCounter[NUMBER_OF_UARTS];
+static uint16_t deviceFailedToSendPackCounter[NUMBER_OF_UARTS];
+static uint16_t wirelessLinkReceivedFaultyPackCounter[NUMBER_OF_UARTS];
+static uint16_t deviceDeletedPacksOutOfOrder[NUMBER_OF_UARTS];
+static SemaphoreHandle_t loggerSemaphore;
+static uint32_t overviewLogFileStartAtBoot;
 
 /* prototypes */
 static void initLoggerQueues(void);
 static bool writeToFile(FIL* filePointer, char* fileName, char* logEntry);
 static bool writePackLogHeader(FIL* filePointer, char* fileName);
+static bool writeOverviewLogHeader(FIL* filePointer, char* fileName);
 static bool writeByteLogHeader(FIL* filePointer, char* fileName, tRxTxPackage rxTx, tUartNr uartNr);
 static void packageToLogString(tWirelessPackage* pPack, char* logEntry, int logEntryStrSize);
 static bool logPackages(xQueueHandle queue, FIL* filepointer, char* filename);
 static bool logBytes(xQueueHandle queue, FIL* filepointer, char* filename);
-
+void updateOverviewLog(FIL* filePointer, char* fileName);
 
 void logger_TaskEntry(void* p)
 {
 	uint32_t timestampLastLog;
 	static FIL filPacks[2][NUMBER_OF_UARTS]; /* static because of its size */
 	static FIL filBytes[2][1]; /* static because of its size */
+	static FIL filOverviewLogger;
 
 	/* ------------- init logger ----------------------- */
 	(void) p; /* p not used -> no compiler warning */
 	/* open log files and write log header into all of them */
+
+
+
+	/* write log header into files */
+	/* open file and move to end of file */
+	if (FAT1_open(&filOverviewLogger, filenameOverviewLogger, FA_OPEN_ALWAYS|FA_WRITE)!=FR_OK) /* open file */
+		while(1){}
+	if (FAT1_lseek(&filOverviewLogger, FAT1_f_size(&filOverviewLogger)) != FR_OK || filOverviewLogger.fptr != FAT1_f_size(&filOverviewLogger)) /* move to the end of file */
+		while(1){}
+	if(writeOverviewLogHeader(&filOverviewLogger,filenameOverviewLogger))
+	{
+		FAT1_sync(&filOverviewLogger);
+	}
+	overviewLogFileStartAtBoot = FAT1_f_size(&filOverviewLogger);
+
 	for(int uartNr = 0; uartNr < NUMBER_OF_UARTS; uartNr++)
 	{
+
 		/* open file and move to end of file */
 		if (FAT1_open(&filPacks[SENT_PACKAGE][uartNr], filenameSentPackagesLogger[uartNr], FA_OPEN_ALWAYS|FA_WRITE)!=FR_OK) /* open file */
 			while(1){}
@@ -69,7 +100,6 @@ void logger_TaskEntry(void* p)
 		if (FAT1_lseek(&filBytes[SENT_PACKAGE][uartNr], FAT1_f_size(&filBytes[SENT_PACKAGE][uartNr])) != FR_OK || filBytes[SENT_PACKAGE][uartNr].fptr != FAT1_f_size(&filBytes[SENT_PACKAGE][uartNr])) /* move to the end of file */
 			while(1){}
 
-		/* write log header into files */
 		if(writePackLogHeader(&filPacks[SENT_PACKAGE][uartNr], filenameSentPackagesLogger[uartNr]))
 		{
 			FAT1_sync(&filPacks[SENT_PACKAGE][uartNr]);
@@ -117,6 +147,9 @@ void logger_TaskEntry(void* p)
 				}
 				FAT1_sync(&filPacks[SENT_PACKAGE][uartNr]);
 				FAT1_sync(&filPacks[RECEIVED_PACKAGE][uartNr]);
+
+				updateOverviewLog(&filOverviewLogger,filenameOverviewLogger);
+				FAT1_sync(&filOverviewLogger);
 				timestampLastLog = xTaskGetTickCount();
 			}
 		}
@@ -134,19 +167,21 @@ void logger_TaskInit(void)
 		while(true){} /* no shell assigned */
 	}
 
-	if(config.LoggingEnabled)
-	{
+	//if(config.LoggingEnabled)
+	//{
 		initLoggerQueues();
 
 		/* change into log folder or create log folder if non-existent */
-		if(FAT1_ChangeDirectory("LogFiles", io) != ERR_OK) /* logging directory doesn't exist? */
-		{
-			if(FAT1_MakeDirectory("LogFiles", io) != ERR_OK) /* create logging directory */
-				while(1){} /* unable to create directory */
-			if(FAT1_ChangeDirectory("LogFiles", io) != ERR_OK) /* switch to logging directory */
-				while(1){} /* could not switch to logging directory */
-		}
-	}
+//		if(FAT1_ChangeDirectory("LogFiles", io) != ERR_OK) /* logging directory doesn't exist? */
+//		{
+//			if(FAT1_MakeDirectory("LogFiles", io) != ERR_OK) /* create logging directory */
+//				while(1){} /* unable to create directory */
+//			if(FAT1_ChangeDirectory("LogFiles", io) != ERR_OK) /* switch to logging directory */
+//				while(1){} /* could not switch to logging directory */
+//		}
+	//}
+
+	loggerSemaphore = xSemaphoreCreateBinary();
 }
 
 /*!
@@ -322,6 +357,12 @@ static bool writePackLogHeader(FIL* filePointer, char* fileName)
 	return writeToFile(filePointer, fileName, logHeader);
 }
 
+static bool writeOverviewLogHeader(FIL* filePointer, char* fileName)
+{
+	char logHeader[] = "\r\n\r\nOverview Logger File. New Session\r\n";
+	return writeToFile(filePointer, fileName, logHeader);
+}
+
 /*!
 * \fn static bool writeByteLogHeader(FIL* filePointer, char* fileName)
 * \brief Writes the log header into the file pointed to by filePointer with the name fileName
@@ -392,6 +433,141 @@ static void packageToLogString(tWirelessPackage* pPack, char* logEntry, int logE
 	UTIL1_strcat(logEntry, logEntryStrSize, strNum);
 	// ToDo: Add 512bit Hash value here for every single package!
 	UTIL1_strcat(logEntry, logEntryStrSize, "\r\n");
+}
+
+void updateOverviewLog(FIL* filePointer, char* fileName)
+{
+	uint16_t copyDeviceSentPackCounter[NUMBER_OF_UARTS];
+	uint16_t copyDeviceReceivedPackCounter[NUMBER_OF_UARTS];
+	uint16_t copyWirelessLinkSentPackCounter[NUMBER_OF_UARTS];
+	uint16_t copyWirelessLinkReceivedPackCounter[NUMBER_OF_UARTS];
+	uint16_t copyDeviceFailedToSendPackCounter[NUMBER_OF_UARTS];
+	uint16_t copyWirelessLinkReceivedFaultyPackCounter[NUMBER_OF_UARTS];
+
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		copyDeviceSentPackCounter[i] = deviceSentPackCounter[i];
+		copyDeviceReceivedPackCounter[i] = deviceReceivedPackCounter[i];
+		copyWirelessLinkSentPackCounter[i] = wirelessLinkSentPackCounter[i];
+		copyWirelessLinkReceivedPackCounter[i] = wirelessLinkReceivedPackCounter[i];
+		copyDeviceFailedToSendPackCounter[i] = deviceFailedToSendPackCounter[i];
+		copyWirelessLinkReceivedFaultyPackCounter[i] = wirelessLinkReceivedFaultyPackCounter[i];
+	}
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+
+	char strNum[9]; /* 8 digits needed to convert uint32 */
+	char logEntry[500];
+	logEntry[0] = 0;
+	strNum[0] = 0;
+	UTIL1_strcat(logEntry, 500, "\r\nSent Packs per Device: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), copyDeviceSentPackCounter[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+	UTIL1_strcat(logEntry, 500, "\r\nReceived Packs per Device: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), copyDeviceReceivedPackCounter[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+	UTIL1_strcat(logEntry, 500, "\r\nSent Packs per Modem: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), copyWirelessLinkSentPackCounter[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+	UTIL1_strcat(logEntry, 500, "\r\nReceived Packs per Modem: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), copyWirelessLinkReceivedPackCounter[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+	UTIL1_strcat(logEntry, 500, "\r\nFailed Packs to Send per Device: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), copyDeviceFailedToSendPackCounter[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+	UTIL1_strcat(logEntry, 500, "\r\nFaulty Received Packs per Modem: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), copyWirelessLinkReceivedFaultyPackCounter[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+	UTIL1_strcat(logEntry, 500, "\r\nDeleted Packs out of order per Device: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), deviceDeletedPacksOutOfOrder[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
+
+	FAT1_lseek(filePointer, overviewLogFileStartAtBoot);
+	writeToFile(filePointer, fileName, logEntry);
+}
+
+void logger_incrementDeviceSentPack(tUartNr deviceNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	deviceSentPackCounter[deviceNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_incrementDeviceReceivedPack(tUartNr deviceNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	deviceReceivedPackCounter[deviceNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_incrementWirelessSentPack(tUartNr wireLessNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	wirelessLinkSentPackCounter[wireLessNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_incrementWirelessReceivedPack(tUartNr wireLessNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	wirelessLinkReceivedPackCounter[wireLessNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_incrementDeviceFailedToSendPack(tUartNr deviceNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	deviceFailedToSendPackCounter[deviceNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_incremenReceivedFaultyPack(tUartNr wirelessNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	wirelessLinkReceivedFaultyPackCounter[wirelessNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
+}
+
+void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr)
+{
+	FRTOS_xSemaphoreTake(loggerSemaphore,50);
+	deviceDeletedPacksOutOfOrder[deviceNr] ++;
+	FRTOS_xSemaphoreGive(loggerSemaphore);
 }
 
 /*!

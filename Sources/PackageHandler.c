@@ -563,6 +563,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 									numberOfDroppedPackages[wlConn]++;
 									XF1_xsprintf(infoBuf, "Error: Received data package but unable to push this message to the send handler for wireless queue %u because queue full\r\n", (unsigned int) wlConn);
 									LedRed_On();
+									logger_incremenReceivedFaultyPack(wlConn);
 									pushMsgToShellQueue(infoBuf);
 								}
 							}
@@ -581,6 +582,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 							numberOfInvalidPackages[wlConn]++;
 							XF1_xsprintf(infoBuf, "Error: Malloc failed, could not push package to received packages queue\r\n");
 							LedRed_On();
+							logger_incremenReceivedFaultyPack(wlConn);
 							pushMsgToShellQueue(infoBuf);
 						}
 					}
@@ -589,6 +591,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 							numberOfInvalidPackages[wlConn]++;
 							XF1_xsprintf(infoBuf, "Error: payloadSize == 0 -> reset state machine\r\n");
 							LedRed_On();
+							logger_incremenReceivedFaultyPack(wlConn);
 							pushMsgToShellQueue(infoBuf);
 					}
 				}
@@ -599,6 +602,7 @@ static void assembleWirelessPackages(uint8_t wlConn)
 					numberOfInvalidPackages[wlConn]++;
 					XF1_xsprintf(infoBuf, "Info: Received %u invalid payload CRC, reset state machine", (unsigned int) numOfInvalidRecWirelessPack[wlConn]);
 					pushMsgToShellQueue(infoBuf);
+					logger_incremenReceivedFaultyPack(wlConn);
 				}
 				/* reset state machine */
 				currentRecHandlerState[wlConn] = STATE_START;
@@ -720,7 +724,7 @@ static BaseType_t pushToAssembledPackagesQueue(tUartNr wlConn, tWirelessPackage*
 
 		if(xQueueSendToBack(queueAssembledPackages[wlConn], pPackage, ( TickType_t ) pdMS_TO_TICKS(MAX_DELAY_PACK_HANDLER_MS) ) == pdTRUE) /* ToDo: handle failure on pushing package to receivedPackages queue , currently it is dropped if unsuccessful */
 		{
-			if(config.LoggingEnabled)
+			if(config.LoggingEnabled && pPackage->packType == PACK_TYPE_DATA_PACKAGE)
 			{
 				pushPackageToLoggerQueue(pPackage, RECEIVED_PACKAGE, wlConn); /* content is only copied in this function, new package generated for logging queue inside this function */
 			}
@@ -858,7 +862,7 @@ BaseType_t pushToPacksToDisassembleQueue(tUartNr wlConn, tWirelessPackage* pPack
 {
 	if(xQueueSendToBack(queuePackagesToDisassemble[wlConn], pPackage, ( TickType_t ) pdMS_TO_TICKS(MAX_DELAY_PACK_HANDLER_MS) ) == pdTRUE)
 	{
-		if(config.LoggingEnabled)
+		if(config.LoggingEnabled && pPackage->packType == PACK_TYPE_DATA_PACKAGE)
 		{
 			pushPackageToLoggerQueue(pPackage, SENT_PACKAGE, wlConn); /* content is only copied in this function, new package generated for logging queue inside this function */
 		}

@@ -34,15 +34,19 @@ BaseType_t pushPackageToLoggerQueue(tWirelessPackage* pPackage, tRxTxPackage rxT
 BaseType_t pushByteToLoggerQueue(uint8_t byte, tRxTxPackage rxTxPackage, tUartNr wlConnNr);
 
 
+void logger_incrementDeviceSentPack(tUartNr deviceNr);
+void logger_incrementDeviceReceivedPack(tUartNr deviceNr);
+void logger_incrementWirelessSentPack(tUartNr wireLessNr);
+void logger_incrementWirelessReceivedPack(tUartNr wireLessNr);
+void logger_incrementDeviceFailedToSendPack(tUartNr deviceNr);
+void logger_incremenReceivedFaultyPack(tUartNr wirelessNr);
+void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr);
+
 /*! \def MAX_DELAY_LOGGER_MS
 *  \brief Maximal delay on queue operations inside Logger task.
 */
 #define MAX_DELAY_LOGGER_QUEUE_OPERATION_MS					(5)
 
-/*! \def SD_CARD_WRITE_INTERVAL_MS
-*  \brief Interval at which logging data is written to SD card, in [ms]
-*/
-#define SD_CARD_WRITE_INTERVAL_MS							(5000)
 
 /*! \def QUEUE_NUM_OF_PACK_LOG_ENTRIES
 *  \brief Size of queue for log entries.

@@ -98,6 +98,9 @@ void networkHandler_TaskEntry(void* p)
 									/* package couldnt be sent and payload was freed! don't access package anymore! */
 									break; /* exit innner for loop */
 								}
+
+								if(tmpPack.packType == PACK_TYPE_DATA_PACKAGE)
+									logger_incrementWirelessSentPack(wlConn);
 								packSent = true;
 						}
 					}
@@ -276,6 +279,10 @@ static bool processAssembledPackage(tUartNr wlConn)
 	{
 		return false; /* peek not successful */
 	}
+
+	if(package.packType == PACK_TYPE_DATA_PACKAGE)
+		logger_incrementWirelessReceivedPack(wlConn);
+
 	/* no space for package in transport handler or no space for acknowledge in package handler */
 	if((package.packType == PACK_TYPE_DATA_PACKAGE) && (freeSpaceInReceivedPayloadPacksQueue(package.devNum) <= 0) ||
 	   (package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST) && (freeSpaceInReceivedPayloadPacksQueue(package.devNum) <= 0) ||

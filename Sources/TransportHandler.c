@@ -140,8 +140,6 @@ void transportHandler_TaskEntry(void* p)
 				{
 					if(packageBuffer_putIfNotOld(&receiveBuffer[deviceNr],&package) != true)			//Put data-package into receiveBuffer
 					{
-						//vPortFree(package.payload);
-						//package.payload = NULL;
 						if(packageBuffer_getPackage(&receiveBuffer[deviceNr],&package,package.payloadNr))
 						{
 							vPortFree(package.payload);
@@ -162,6 +160,8 @@ void transportHandler_TaskEntry(void* p)
 						popFromReceivedPayloadPacksQueue(deviceNr, &package);
 						vPortFree(package.payload);
 						package.payload = NULL;
+
+						logger_incrementDeviceReceivedPack(package.devNum);
 					}
 				}
 
@@ -170,6 +170,7 @@ void transportHandler_TaskEntry(void* p)
 				{
 					uint16_t payloadNrToAck = package.payloadNr;
 					uint16_t payloadNrTransmissionOk = package.packNr;
+					bool gotApack = false;
 					popFromReceivedPayloadPacksQueue(deviceNr, &package);
 					vPortFree(package.payload);
 					package.payload = NULL;
@@ -182,6 +183,11 @@ void transportHandler_TaskEntry(void* p)
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
+						if(!gotApack)
+						{
+							gotApack = true;
+							logger_incrementDeviceSentPack(package.devNum);
+						}
 					}
 				}
 
@@ -270,6 +276,7 @@ void transportHandler_TaskEntry(void* p)
 					char infoBuf[100];
 					XF1_xsprintf(infoBuf, "Number of Failed to send Packages %u Connection\r\n",nofpackagesUnableToSend);
 					pushMsgToShellQueue(infoBuf);
+					logger_incrementDeviceFailedToSendPack(package.devNum);
 					vPortFree(package.payload);
 					package.payload = NULL;
 				}
@@ -301,6 +308,7 @@ void transportHandler_TaskEntry(void* p)
 				packageBuffer_setCurrentPayloadNR(&receiveBuffer[deviceNr], package.payloadNr);
 				vPortFree(package.payload);
 				package.payload = NULL;
+				logger_incrementDeletedOutOfOrderPacks(package.devNum);
 			}
 			
 			/*------------------------ Delete received Wireless-Packets with old payload---------------------------*/
