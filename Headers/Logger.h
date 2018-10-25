@@ -34,7 +34,7 @@ BaseType_t pushPackageToLoggerQueue(tWirelessPackage* pPackage, tRxTxPackage rxT
 BaseType_t pushByteToLoggerQueue(uint8_t byte, tRxTxPackage rxTxPackage, tUartNr wlConnNr);
 
 
-void logger_incrementDeviceSentPack(tUartNr deviceNr);
+void logger_incrementDeviceSentPack(tUartNr deviceNr,uint16_t latency);
 void logger_incrementDeviceReceivedPack(tUartNr deviceNr);
 void logger_incrementWirelessSentPack(tUartNr wireLessNr);
 void logger_incrementWirelessReceivedPack(tUartNr wireLessNr);

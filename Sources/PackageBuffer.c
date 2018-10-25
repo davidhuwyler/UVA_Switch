@@ -317,7 +317,7 @@ bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* pa
 * 		  If there multiple Packages with the same PayloadNR, all of them are deleted (redundant packages)
 * \return true if successful
 */
-bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
+bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr,uint16_t* latency)
 {
 	updateTickCounter();
 	if(buffer->count > 0)
@@ -330,9 +330,7 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 				buffer->indexIsEmpty[i] = true;
 				buffer->freeSpace ++;
 				buffer->count --;
-				//bool result = copyPackage(&buffer->packageArray[i],packet);
-				//vPortFree(buffer->packageArray[i].payload);
-				//buffer->packageArray[i].payload = NULL;
+				*latency = tickCounter - buffer->sysTickTimestampBufferInsertion[i];
 
 				*packet = buffer->packageArray[i];
 				return true;

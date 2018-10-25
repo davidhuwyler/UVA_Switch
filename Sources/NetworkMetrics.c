@@ -738,13 +738,13 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 	eFindPacketPairState state = FIND_SENT_PACK1;
 	tWirelessPackage tempPack;
 	tTestPackagePayload payload;
-
+	uint16_t latecy;
 	while(state!= FOUND_ALL && state!=FOUND_NOT_ALL)
 	{
 		switch (state)
 			{
 				case FIND_SENT_PACK1:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr))
+					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr,&latecy))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST  &&  !payload.returned)
@@ -766,7 +766,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					break;
 				case FIND_SENT_PACK2:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr+1))
+					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr+1,&latecy))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND  &&  !payload.returned)
@@ -796,7 +796,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					break;
 				case FIND_RECEIVED_PACK1:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr))
+					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr,&latecy))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST  &&  payload.returned)
@@ -834,7 +834,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					break;
 				case FIND_RECEIVED_PACK2:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr+1))
+					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr+1,&latecy))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND  &&  payload.returned)

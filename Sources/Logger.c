@@ -34,6 +34,8 @@ static uint16_t wirelessLinkReceivedPackCounter[NUMBER_OF_UARTS];
 static uint16_t deviceFailedToSendPackCounter[NUMBER_OF_UARTS];
 static uint16_t wirelessLinkReceivedFaultyPackCounter[NUMBER_OF_UARTS];
 static uint16_t deviceDeletedPacksOutOfOrder[NUMBER_OF_UARTS];
+static uint64_t accumulatedLatencyAllPacks[NUMBER_OF_UARTS];
+static uint16_t averageLatencyPerWirelessChannel[NUMBER_OF_UARTS];
 static SemaphoreHandle_t loggerSemaphore;
 static uint32_t overviewLogFileStartAtBoot;
 
@@ -443,6 +445,7 @@ void updateOverviewLog(FIL* filePointer, char* fileName)
 	uint16_t copyWirelessLinkReceivedPackCounter[NUMBER_OF_UARTS];
 	uint16_t copyDeviceFailedToSendPackCounter[NUMBER_OF_UARTS];
 	uint16_t copyWirelessLinkReceivedFaultyPackCounter[NUMBER_OF_UARTS];
+	uint64_t copyAccumulatedLatencyAllPacks[NUMBER_OF_UARTS];
 
 	FRTOS_xSemaphoreTake(loggerSemaphore,50);
 	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
@@ -453,6 +456,7 @@ void updateOverviewLog(FIL* filePointer, char* fileName)
 		copyWirelessLinkReceivedPackCounter[i] = wirelessLinkReceivedPackCounter[i];
 		copyDeviceFailedToSendPackCounter[i] = deviceFailedToSendPackCounter[i];
 		copyWirelessLinkReceivedFaultyPackCounter[i] = wirelessLinkReceivedFaultyPackCounter[i];
+		copyAccumulatedLatencyAllPacks[i] = accumulatedLatencyAllPacks[i];
 	}
 	FRTOS_xSemaphoreGive(loggerSemaphore);
 
@@ -516,15 +520,25 @@ void updateOverviewLog(FIL* filePointer, char* fileName)
 		UTIL1_strcat(logEntry, 500, strNum);
 		UTIL1_strcat(logEntry, 500, " ");
 	}
+	UTIL1_strcat(logEntry, 500, "\r\nAverage latency (RRT) per Modem: ");
+	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	{
+		averageLatencyPerWirelessChannel[i] = copyAccumulatedLatencyAllPacks[i]/copyDeviceFailedToSendPackCounter[i];
+		strNum[0] = 0;
+		UTIL1_strcatNum16u(strNum, sizeof(strNum), averageLatencyPerWirelessChannel[i]);
+		UTIL1_strcat(logEntry, 500, strNum);
+		UTIL1_strcat(logEntry, 500, " ");
+	}
 
 	FAT1_lseek(filePointer, overviewLogFileStartAtBoot);
 	writeToFile(filePointer, fileName, logEntry);
 }
 
-void logger_incrementDeviceSentPack(tUartNr deviceNr)
+void logger_incrementDeviceSentPack(tUartNr deviceNr,uint16_t latency)
 {
 	FRTOS_xSemaphoreTake(loggerSemaphore,50);
 	deviceSentPackCounter[deviceNr] ++;
+	accumulatedLatencyAllPacks[deviceNr] += latency;
 	FRTOS_xSemaphoreGive(loggerSemaphore);
 }
 
@@ -532,6 +546,7 @@ void logger_incrementDeviceReceivedPack(tUartNr deviceNr)
 {
 	FRTOS_xSemaphoreTake(loggerSemaphore,50);
 	deviceReceivedPackCounter[deviceNr] ++;
+
 	FRTOS_xSemaphoreGive(loggerSemaphore);
 }
 

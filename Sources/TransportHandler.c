@@ -18,6 +18,7 @@
 #include "LedRed.h"
 #include "Platform.h"
 #include "PackageBuffer.h"
+#include "Logger.h"
 
 /* --------------- prototypes ------------------- */
 static bool processReceivedPayload(tWirelessPackage* pPackage);
@@ -74,7 +75,7 @@ void transportHandler_TaskEntry(void* p)
 	tWirelessPackage package,pAckPack;
 	bool request = true;
 	TickType_t xLastWakeTime = xTaskGetTickCount(); /* Initialize the lastWakeTime variable with the current time. */
-
+	uint16_t latency;
 
 	for(;;)
 	{
@@ -109,7 +110,7 @@ void transportHandler_TaskEntry(void* p)
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
-						if(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr))
+						if(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr,&latency))
 						{
 							vPortFree(package.payload);
 							package.payload = NULL;
@@ -120,7 +121,7 @@ void transportHandler_TaskEntry(void* p)
 				{
 					vPortFree(package.payload);
 					package.payload = NULL;
-					if(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr))
+					if(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr,&latency))
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
@@ -140,7 +141,7 @@ void transportHandler_TaskEntry(void* p)
 				{
 					if(packageBuffer_putIfNotOld(&receiveBuffer[deviceNr],&package) != true)			//Put data-package into receiveBuffer
 					{
-						if(packageBuffer_getPackage(&receiveBuffer[deviceNr],&package,package.payloadNr))
+						if(packageBuffer_getPackage(&receiveBuffer[deviceNr],&package,package.payloadNr,&latency))
 						{
 							vPortFree(package.payload);
 							package.payload = NULL;
@@ -179,14 +180,14 @@ void transportHandler_TaskEntry(void* p)
 					packageBuffer_setCurrentPayloadNR(&sendBuffer[deviceNr],payloadNrTransmissionOk);
 					packageBuffer_freeOlderThanCurrentPackage(&sendBuffer[deviceNr]);
 					
-					while(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,payloadNrToAck))
+					while(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,payloadNrToAck,&latency))
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
 						if(!gotApack)
 						{
 							gotApack = true;
-							logger_incrementDeviceSentPack(package.devNum);
+							logger_incrementDeviceSentPack(package.devNum,latency);
 						}
 					}
 				}
@@ -264,7 +265,7 @@ void transportHandler_TaskEntry(void* p)
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
-						packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr);
+						packageBuffer_getPackage(&sendBuffer[deviceNr],&package,package.payloadNr,&latency);
 						vPortFree(package.payload);
 						package.payload = NULL;
 					}
