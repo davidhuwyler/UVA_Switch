@@ -41,6 +41,7 @@ void logger_incrementWirelessReceivedPack(tUartNr wireLessNr);
 void logger_incrementDeviceFailedToSendPack(tUartNr deviceNr);
 void logger_incremenReceivedFaultyPack(tUartNr wirelessNr);
 void logger_incrementDeletedOutOfOrderPacks(tUartNr deviceNr);
+void logger_logDeviceToDeviceLatency(tUartNr deviceNr,uint16_t latency);
 void logger_logModemLatency(tUartNr wirelessNr,uint16_t latency);
 
 //#define DO_PACK_AND_BYTE_LOGGING

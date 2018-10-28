@@ -94,6 +94,7 @@ void transportHandler_TaskEntry(void* p)
 			/*------------------ Generate Packages From Raw Data (Device Bytes)---------------------*/
 			if (generateDataPackage(deviceNr, &package))
 			{
+				logger_incrementDeviceSentPack(package.devNum);
 				if (packageBuffer_put(&sendBuffer[deviceNr],&package) != true)//Put data-package into sendBuffer until Acknowledge gets received
 				{
 					tWirelessPackage oldestPackage;
@@ -170,6 +171,7 @@ void transportHandler_TaskEntry(void* p)
 					uint16_t payloadNrToAck = package.payloadNr;
 					uint16_t payloadNrTransmissionOk = package.packNr;
 					uint8_t wirelessConnNr = package.payload[0];
+					uint16_t numberOfSendTries;
 					bool gotApack = false;
 					popFromReceivedPayloadPacksQueue(deviceNr, &package);
 					vPortFree(package.payload);
@@ -179,16 +181,15 @@ void transportHandler_TaskEntry(void* p)
 					packageBuffer_setCurrentPayloadNR(&sendBuffer[deviceNr],payloadNrTransmissionOk);
 					packageBuffer_freeOlderThanCurrentPackage(&sendBuffer[deviceNr]);
 					
-					while(packageBuffer_getPackage(&sendBuffer[deviceNr],&package,payloadNrToAck,&latency))
+					while(packageBuffer_getPackageWithVar(&sendBuffer[deviceNr],&package,&numberOfSendTries,payloadNrToAck,&latency))
 					{
 						vPortFree(package.payload);
 						package.payload = NULL;
 
-						logger_incrementDeviceSentPack(package.devNum);
 						if(!gotApack)
 						{
 							gotApack = true;
-							logger_logDeviceToDeviceLatency(package.devNum,latency);
+							logger_logDeviceToDeviceLatency(package.devNum,numberOfSendTries*latency);
 							logger_logModemLatency(wirelessConnNr,latency);
 						}
 					}
@@ -485,7 +486,11 @@ static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPac
 	pAckPack->payload = (uint8_t*) FRTOS_pvPortMalloc(sizeof(int8_t));
 	if(pAckPack->payload == NULL) /* malloc failed */
 		return false;
-	/* the payload is filled in the network handler*/
+	/* the payload is filled in the network handler if not */
+
+	/* Fill payload if UAV Switch is MOdemSImlulator -> Acknowledges go back to sender*/
+	if(config.EnableRoutingAlgorithmTestBench == TESTBENCH_MODE_MODEM_SIMULATOR)
+		pAckPack->payload[0] = pReceivedDataPack->devNum;
 
 	return true;
 }

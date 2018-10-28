@@ -123,6 +123,14 @@ bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* pa
 */
 bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr,uint16_t* latency);
 
+/*!
+* \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
+* \brief  returns a copy of the requested packet. Needs To be freed after sending!
+* 		  frees the package from the queue
+* 		  If there multiple Packages with the same PayloadNR, all of them are deleted (redundant packages)
+* \return true if successful
+*/
+bool packageBuffer_getPackageWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,uint16_t* variable, uint16_t payloadNr,uint16_t* latency);
 
 /*!
 * \fn bool packageBuffer_getArrayOfPackagePayloadNrInBuffer(tPackageBuffer* buffer, uint16_t* payloadNrArray[PACKAGE_BUFFER_SIZE]);

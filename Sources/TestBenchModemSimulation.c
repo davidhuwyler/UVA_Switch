@@ -9,14 +9,32 @@
 #include "Config.h"
 
 /* global variables, only used in this file */
+#define scenarioNr 3
+
+#if  scenarioNr == 1
 static uint16_t byteErrorTestPatternWirelessLink[NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] = {{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
 																									  { 50, 100, 150, 200, 250, 500, 550, 600, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 2000},
 																									  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 30991, 30992, 30993, 30994, 30995, 30996, 30997, 30998, 30999,31000},
 																									  {110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}};
-
-static uint16_t packetErrorTestPattern[PACKET_ERROR_TEST_PATTERN_LENGTH]={110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500};
-
 static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {40,40,20,20,20,40,40,10,70,120,120,150,150,150,80,40,40,40,40,70};
+#endif
+
+#if  scenarioNr == 2
+static uint16_t byteErrorTestPatternWirelessLink[NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] = {{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
+																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+																									  {110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}};
+static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {80,80,50,50,60,60,80,80,140,220,220,300,300,300,160,80,80,80,80,140};
+#endif
+
+#if  scenarioNr == 3
+static uint16_t byteErrorTestPatternWirelessLink[NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] = {{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
+																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+																									  {110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}};
+static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {300,300,300,300,300,300,300,80,140,220,220,300,300,300,160,80,300,80,300,300};
+#endif
+
 
 /*!
 * \fn  bool RoutingAlgorithmTestBench_getReceivePermission(uint8_t wirelessNr)

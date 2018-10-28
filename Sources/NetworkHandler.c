@@ -77,7 +77,11 @@ void networkHandler_TaskEntry(void* p)
 					{
 						oneToOnerouting(deviceNr, wlConnToUse);
 					}
-
+					// If UAV Switch is modem Simulator, send Pack back to same Modem as it was received
+					else if(config.EnableRoutingAlgorithmTestBench == TESTBENCH_MODE_MODEM_SIMULATOR && package.packType == PACK_TYPE_REC_ACKNOWLEDGE)
+					{
+						oneToOnerouting(package.payload[0], wlConnToUse);
+					}
 					// Data-Packet gets routet
 					else if(!networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse, package.payloadNr,package.devNum))
 					{
