@@ -206,7 +206,10 @@ static void calculateMetrics(void)
 			tTestPackagePayload payload;
 			copyTestPackagePayload(&tempPack,&payload);
 			if(!payload.returned)
+			{
 				updatePacketLossRatioPacketNOK(wirelessLink);
+			}
+
 
 			if(currentPairNr[wirelessLink] < tempPack.payloadNr)
 				currentPairNr[wirelessLink] = tempPack.payloadNr;
@@ -745,12 +748,13 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 	tWirelessPackage tempPack;
 	tTestPackagePayload payload;
 	uint16_t latecy;
+	uint64_t timeStampSent1, timeStampSent2, timeStampRec1,timeStampRec2;
 	while(state!= FOUND_ALL && state!=FOUND_NOT_ALL)
 	{
 		switch (state)
 			{
 				case FIND_SENT_PACK1:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr,&latecy))
+					if(packageBuffer_getPackageWithTimeStamp(&testPackageBuffer[deviceID],&tempPack,startPairNr,&latecy,&timeStampSent1))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST  &&  !payload.returned)
@@ -760,7 +764,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 						}
 						else
 						{
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],&tempPack);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],&tempPack,timeStampSent1);
 							vPortFree(tempPack.payload);
 							tempPack.payload = NULL;
 							state = FOUND_NOT_ALL;
@@ -772,7 +776,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					break;
 				case FIND_SENT_PACK2:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr+1,&latecy))
+					if(packageBuffer_getPackageWithTimeStamp(&testPackageBuffer[deviceID],&tempPack,startPairNr+1,&latecy,&timeStampSent2))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND  &&  !payload.returned)
@@ -782,11 +786,11 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 						}
 						else
 						{
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack1);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack1,timeStampSent1);
 							vPortFree(sentPack1->payload);
 							sentPack1->payload = NULL;
 
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],&tempPack);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],&tempPack,timeStampSent2);
 							vPortFree(tempPack.payload);
 							tempPack.payload = NULL;
 							state = FOUND_NOT_ALL;
@@ -794,7 +798,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					else
 					{
-						packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack1);
+						packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack1,timeStampSent1);
 						vPortFree(sentPack1->payload);
 						sentPack1->payload = NULL;
 
@@ -802,7 +806,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					break;
 				case FIND_RECEIVED_PACK1:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr,&latecy))
+					if(packageBuffer_getPackageWithTimeStamp(&testPackageBuffer[deviceID],&tempPack,startPairNr,&latecy,&timeStampRec1))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST  &&  payload.returned)
@@ -812,15 +816,15 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 						}
 						else
 						{
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack1);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack1,timeStampSent1);
 							vPortFree(sentPack1->payload);
 							sentPack1->payload = NULL;
 
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack2);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack2,timeStampSent2);
 							vPortFree(sentPack2->payload);
 							sentPack2->payload = NULL;
 
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],&tempPack);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],&tempPack,timeStampRec1);
 							vPortFree(tempPack.payload);
 							tempPack.payload = NULL;
 							state = FOUND_NOT_ALL;
@@ -828,11 +832,11 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					else
 					{
-						packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack1);
+						packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack1,timeStampSent1);
 						vPortFree(sentPack1->payload);
 						sentPack1->payload = NULL;
 
-						packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack2);
+						packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack2,timeStampSent2);
 						vPortFree(sentPack2->payload);
 						sentPack2->payload = NULL;
 
@@ -840,7 +844,7 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					break;
 				case FIND_RECEIVED_PACK2:
-					if(packageBuffer_getPackage(&testPackageBuffer[deviceID],&tempPack,startPairNr+1,&latecy))
+					if(packageBuffer_getPackageWithTimeStamp(&testPackageBuffer[deviceID],&tempPack,startPairNr+1,&latecy,&timeStampRec2))
 					{
 						copyTestPackagePayload(&tempPack,&payload);
 						if(tempPack.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND  &&  payload.returned)
@@ -850,19 +854,19 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 						}
 						else
 						{
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack1);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack1,timeStampSent1);
 							vPortFree(sentPack1->payload);
 							sentPack1->payload = NULL;
 
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack2);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack2,timeStampSent2);
 							vPortFree(sentPack2->payload);
 							sentPack2->payload = NULL;
 
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],receivedPack1);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],receivedPack1,timeStampRec1);
 							vPortFree(receivedPack1->payload);
 							receivedPack1->payload = NULL;
 
-							packageBuffer_putNotUnique(&testPackageBuffer[deviceID],&tempPack);
+							packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],&tempPack,timeStampRec2);
 							vPortFree(tempPack.payload);
 							tempPack.payload = NULL;
 							state = FOUND_NOT_ALL;
@@ -870,15 +874,15 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 					}
 					else
 					{
-						packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack1);
+						packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack1,timeStampSent1);
 						vPortFree(sentPack1->payload);
 						sentPack1->payload = NULL;
 
-						packageBuffer_putNotUnique(&testPackageBuffer[deviceID],sentPack2);
+						packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],sentPack2,timeStampSent2);
 						vPortFree(sentPack2->payload);
 						sentPack2->payload = NULL;
 
-						packageBuffer_putNotUnique(&testPackageBuffer[deviceID],receivedPack1);
+						packageBuffer_putNotUniqueWithTimestamp(&testPackageBuffer[deviceID],receivedPack1,timeStampRec1);
 						vPortFree(receivedPack1->payload);
 						receivedPack1->payload = NULL;
 

@@ -84,6 +84,13 @@ bool packageBuffer_putWithVar(tPackageBuffer* buffer, tWirelessPackage* packet,u
 bool packageBuffer_putNotUnique(tPackageBuffer* buffer, tWirelessPackage* packet);
 
 /*!
+* \fn bool packageBuffer_put(tWirelessPackage* packet);
+* \brief Copies the packet into the buffer. Does not check if package payloadNr already in Buffer
+* \return true if successful
+*/
+bool packageBuffer_putNotUniqueWithTimestamp(tPackageBuffer* buffer, tWirelessPackage* packet,uint64_t customTimeStamp);
+
+/*!
 * \fn bool packageBuffer_getNextOrderedPackage(tWirelessPackage* packet);
 * \brief returns a copy of the next buffered packet in order. Needs To be freed after sending!
 * 		  frees the package from the buffer
@@ -123,6 +130,15 @@ bool packageBuffer_getOldestPackage(tPackageBuffer* buffer, tWirelessPackage* pa
 * \return true if successful
 */
 bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr,uint16_t* latency);
+
+/*!
+* \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
+* \brief  returns a copy of the requested packet. Needs To be freed after sending!
+* 		  frees the package from the queue
+* 		  If there multiple Packages with the same PayloadNR, all of them are deleted (redundant packages)
+* \return true if successful
+*/
+bool packageBuffer_getPackageWithTimeStamp(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr,uint16_t* latency,uint64_t* timeStamp);
 
 /*!
 * \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)

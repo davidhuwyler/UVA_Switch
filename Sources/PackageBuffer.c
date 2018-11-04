@@ -186,6 +186,31 @@ bool packageBuffer_putNotUnique(tPackageBuffer* buffer, tWirelessPackage* packet
 }
 
 /*!
+* \fn bool packageBuffer_put(tWirelessPackage* packet);
+* \brief Copies the packet into the buffer. Does not check if package payloadNr already in Buffer
+* \return true if successful
+*/
+bool packageBuffer_putNotUniqueWithTimestamp(tPackageBuffer* buffer, tWirelessPackage* packet,uint64_t customTimeStamp)
+{
+	updateTickCounter(buffer);
+	if(buffer->freeSpace > 0)
+	{
+		uint16_t indexOfFreePackage;
+		if(getIndexOfFreeSpaceInBuffer(buffer, &indexOfFreePackage))
+		{
+			buffer->indexIsEmpty[indexOfFreePackage] = false;
+			buffer->sysTickTimestampBufferInsertion[indexOfFreePackage] = customTimeStamp;
+			buffer->variable[indexOfFreePackage] = 0;
+			buffer->freeSpace --;
+			buffer->count ++;
+			bool result = copyPackage(packet,&buffer->packageArray[indexOfFreePackage]);
+			return result;
+		}
+	}
+	return false;
+}
+
+/*!
 * \fn bool packageBuffer_getNextOrderedPackage(tWirelessPackage* packet);
 * \brief returns a copy of the next buffered packet in order. Needs To be freed after sending!
 * \param packet to store the copy from the buffer
@@ -330,6 +355,35 @@ bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, 
 	return false;
 }
 
+/*!
+* \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
+* \brief  returns a copy of the requested packet. Needs To be freed after sending!
+* 		  frees the package from the queue
+* 		  If there multiple Packages with the same PayloadNR, all of them are deleted (redundant packages)
+* \return true if successful
+*/
+bool packageBuffer_getPackageWithTimeStamp(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr,uint16_t* latency,uint64_t* timeStamp)
+{
+	updateTickCounter(buffer);
+	if(buffer->count > 0)
+	{
+		for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
+		{
+			if(!buffer->indexIsEmpty[i] && buffer->packageArray[i].payloadNr == payloadNr)
+			{
+				/* Copy the Package out of the buffer */
+				buffer->indexIsEmpty[i] = true;
+				buffer->freeSpace ++;
+				buffer->count --;
+				*latency = buffer->tickCounter - buffer->sysTickTimestampBufferInsertion[i];
+				*timeStamp = buffer->sysTickTimestampBufferInsertion[i];
+				*packet = buffer->packageArray[i];
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 /*!
 * \fn bool packageBuffer_getPackage(tPackageBuffer* buffer, tWirelessPackage* packet, uint16_t payloadNr)
