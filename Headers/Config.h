@@ -17,6 +17,13 @@ typedef enum eRoutingMethode
 	ROUTING_METHODE_METRICS = 0x02
 } tRoutingMethode;
 
+typedef enum eRoutinMethodeVariant
+{
+	ROUTING_METHODE_VARIANT_1 = 0x01,
+	ROUTING_METHODE_VARIANT_2 = 0x02,
+	ROUTING_METHODE_VARIANT_3 = 0x03
+}tRoutinMethodeVariant;
+
 typedef enum eTestBenchRoutingAlgorithmModes
 {
 	TESTBENCH_OFF = 0x00,
@@ -24,6 +31,13 @@ typedef enum eTestBenchRoutingAlgorithmModes
 	TESTBENCH_MODE_MASTER = 0x02
 } tTestBenchRoutingAlgorithmModes;
 
+typedef enum eTestBenchModemSimulationScenarios
+{
+	TESTBENCH_MODEM_SIMULATION_EASY = 0x00,
+	TESTBENCH_MODEM_SIMULATION_MEDIUM = 0x01,
+	TESTBENCH_MODEM_SIMULATION_HARD = 0x02,
+	TESTBENCH_MODEM_SIMULATION_NOF_SCENARIOS = 0x03
+} tTestBenchModemSimulationScenarios;
 
 typedef struct Configurations {
 	/* BaudRateConfiguration */
@@ -40,6 +54,7 @@ typedef struct Configurations {
    int PackageGenMaxTimeout[NUMBER_OF_UARTS];
    int PayloadReorderingTimeout;
    tRoutingMethode RoutingMethode;
+   tRoutinMethodeVariant RoutingMethodeVariant;
    bool UseProbingPacksWlConn[NUMBER_OF_UARTS];
    int CostPerPacketMetric[NUMBER_OF_UARTS];
    bool UseGolayPerWlConn[NUMBER_OF_UARTS];
@@ -47,6 +62,7 @@ typedef struct Configurations {
    bool TestHwLoopbackOnly;
    bool EnableStressTest;
    tTestBenchRoutingAlgorithmModes EnableRoutingAlgorithmTestBench;
+   tTestBenchModemSimulationScenarios TestBenchModemSimulationScenario;
    int testBenchMasterUsedChannels[NUMBER_OF_UARTS];
    tDebugOutput GenerateDebugOutput;
    bool LoggingEnabled;

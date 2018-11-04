@@ -50,7 +50,7 @@ uint16_t getTimespan(uint16_t timestamp);
 static void routingAlgorithmusMetricsMethode();
 static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes);
 static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool onlyUseFreeLinks, uint16_t theshold,uint8_t* nofLinksAboveThreshold);
-static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* choosenLink);
+static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool chooseTwoLinks);
 static void setLinksToUse(bool* wirelessLinksToSet);
 uint8_t getNofSendTries(uint8_t payloadNr);
 void setGPIOforUsedLinks(void);
@@ -249,12 +249,18 @@ static void routingAlgorithmusMetricsMethode()
 	if(nofLinksAboveThreshold)
 	{
 		uint8_t bestWirelessLink;
-		routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink);
 
-		//Fast Adoption: Use Case2 if the Bandwith is falling...
-		if(SBPPraw[bestWirelessLink] == 0)
-			routingDone = false;
+		if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_1)
+			routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink,false);
 
+		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_2)
+		{
+			//Fast Adoption: Use Case2 if the Bandwith is falling use two links
+
+			routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink,false);
+			if(SBPPraw[bestWirelessLink] == 0)
+				routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink,true);
+		}
 
 		onlyPrioDeviceCanSend = false;
 	}
@@ -481,8 +487,9 @@ static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool only
 /*!
 * \fn static void chooseLinkWithHigestQandEnoughBandwith(void)
 * \brief implements the loadbalancind according to Q and used Bandwith
+* If chooseTwoLinks == true, the also the second best link is enabled
 */
-static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* choosenLink)
+static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool chooseTwoLinks)
 {
 	uint16_t sortedQlist[4];
 	uint8_t sortedQindexes[4];
@@ -503,7 +510,11 @@ static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* choosenLink)
 				{
 					wirelessLinksToUse[j] = true;
 					channelFound=true;
-					*choosenLink = j;
+					*bestLink = j;
+				}
+				else if(chooseTwoLinks  && j == sortedQindexes[i+1])
+				{
+					wirelessLinksToUse[j] = true;
 				}
 				else
 				{

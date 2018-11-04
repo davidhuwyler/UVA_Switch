@@ -163,6 +163,18 @@ bool readConfig(void)
 			config.RoutingMethode = ROUTING_METHODE_HARD_RULES; /* ROUTING_METHODE_HARD_RULES if parameter faulty */
   	}
 
+  	/* ROUTING_METHODE_VARIANT */
+  	config.RoutingMethodeVariant = MINI_ini_getl("TransmissionConfiguration", "ROUTING_METHODE_VARIANT",  DEFAULT_INT, "serialSwitch_Config.ini");
+  	switch(config.RoutingMethodeVariant)
+  	{
+		case ROUTING_METHODE_VARIANT_1:
+		case ROUTING_METHODE_VARIANT_2:
+		case ROUTING_METHODE_VARIANT_3:
+			break; /* no action when config parameter set right */
+		default:
+			config.RoutingMethodeVariant = ROUTING_METHODE_VARIANT_1; /* ROUTING_METHODE_VARIANT_1 if parameter faulty */
+  	}
+
   	/* USE_PROBING_PACKS  */
   	numberOfCharsCopied = MINI_ini_gets("TransmissionConfiguration", "USE_PROBING_PACKS",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
   	csvToBool(copiedCsv, config.UseProbingPacksWlConn);
@@ -192,6 +204,18 @@ bool readConfig(void)
 			break; /* no action when config parameter set right */
 		default:
 			config.EnableRoutingAlgorithmTestBench = TESTBENCH_OFF; /* ROUTING_METHODE_HARD_RULES if parameter faulty */
+  	}
+
+  	/* TEST_BENCH_MODEM_SIMULATION_SZENARIO   */
+  	config.TestBenchModemSimulationScenario = MINI_ini_getl("SoftwareConfiguration", "TEST_BENCH_MODEM_SIMULATION_SZENARIO",  DEFAULT_INT, "serialSwitch_Config.ini");
+  	switch(config.TestBenchModemSimulationScenario)
+  	{
+		case TESTBENCH_MODEM_SIMULATION_EASY:
+		case TESTBENCH_MODEM_SIMULATION_MEDIUM:
+		case TESTBENCH_MODEM_SIMULATION_HARD:
+			break; /* no action when config parameter set right */
+		default:
+			config.TestBenchModemSimulationScenario = TESTBENCH_MODEM_SIMULATION_EASY; /* TESTBENCH_MODEM_SIMULATION_EASY if parameter faulty */
   	}
 
   	/* TEST_BENCH_MASTER_USED_CHANNEL  */

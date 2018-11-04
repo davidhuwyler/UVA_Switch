@@ -9,31 +9,36 @@
 #include "Config.h"
 
 /* global variables, only used in this file */
-#define scenarioNr 3
+static uint16_t byteErrorTestPatternWirelessLink[TESTBENCH_MODEM_SIMULATION_NOF_SCENARIOS][NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] ={
+		//Easy Scenario
+		{{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
+		{ 50, 100, 150, 200, 250, 500, 550, 600, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 2000},
+		{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 30991, 30992, 30993, 30994, 30995, 30996, 30997, 30998, 30999,31000},
+		{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}},
 
-#if  scenarioNr == 1
-static uint16_t byteErrorTestPatternWirelessLink[NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] = {{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
-																									  { 50, 100, 150, 200, 250, 500, 550, 600, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 2000},
-																									  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 30991, 30992, 30993, 30994, 30995, 30996, 30997, 30998, 30999,31000},
-																									  {110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}};
-static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {40,40,20,20,20,40,40,10,70,120,120,150,150,150,80,40,40,40,40,70};
-#endif
+		//Medium Scenario
+		{{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
+		{50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+		{50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+		{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}},
 
-#if  scenarioNr == 2
-static uint16_t byteErrorTestPatternWirelessLink[NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] = {{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
-																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
-																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
-																									  {110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}};
-static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {80,80,50,50,60,60,80,80,140,220,220,300,300,300,160,80,80,80,80,140};
-#endif
+		//Hard Scenario
+		{{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
+		{50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+		{50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
+		{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}}
+};
 
-#if  scenarioNr == 3
-static uint16_t byteErrorTestPatternWirelessLink[NUMBER_OF_UARTS][BYTE_ERROR_TEST_PATTERN_LENGTH] = {{110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 500},
-																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
-																									  {50, 100, 150, 200, 250, 300, 350, 400, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 500},
-																									  {110, 111, 112, 160, 161, 162, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 5000}};
-static uint16_t latecyVariationTestPattern[LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {300,300,300,300,300,300,300,80,140,220,220,300,300,300,160,80,300,80,300,300};
-#endif
+static uint16_t latecyVariationTestPattern[TESTBENCH_MODEM_SIMULATION_NOF_SCENARIOS][LATENCY_VARIATION_TEST_PATTERN_LENGHT] = {
+		//Easy Scenario
+		{40,40,20,20,20,40,40,10,70,120,120,150,150,150,80,40,40,40,40,70},
+
+		//Medium Scenario
+		{80,80,50,50,60,60,80,80,140,220,220,300,300,300,160,80,80,80,80,140},
+
+		//Hard Scenario
+		{300,300,300,300,300,300,300,80,140,220,220,300,300,300,160,80,300,80,300,300}
+};
 
 
 /*!
@@ -50,7 +55,7 @@ bool TestBenchModemSimulation_getByteReceivePermission(uint8_t wirelessNr)
 	if(config.EnableRoutingAlgorithmTestBench)
 	{
 		byteCounter[wirelessNr] ++;
-		if(byteErrorTestPatternWirelessLink[wirelessNr][byteErrorPatternIndex[wirelessNr]] == byteCounter[wirelessNr])
+		if(byteErrorTestPatternWirelessLink[config.TestBenchModemSimulationScenario][wirelessNr][byteErrorPatternIndex[wirelessNr]] == byteCounter[wirelessNr])
 		{
 			byteErrorPatternIndex[wirelessNr] ++;
 			byteErrorPatternIndex[wirelessNr] = byteErrorPatternIndex[wirelessNr] % BYTE_ERROR_TEST_PATTERN_LENGTH;
@@ -74,17 +79,6 @@ bool TestBenchModemSimulation_getByteReceivePermission(uint8_t wirelessNr)
 }
 
 /*!
-* \fn  bool RoutingAlgorithmTestBench_getReceivePermission(uint8_t wirelessNr)
-*  The SPI Handler can call this function to decide if the Byte should be discarded or used
-*  This is only used, if the configuration ENABLE_ROUTING_ALGORITHM_TEST_BENCH is Enabled
-*  \return true, the byte should get used
-*/
-bool TestBenchModemSimulation_getPacketReceivePermission()
-{
-
-}
-
-/*!
 * \fn uint16_t RoutingAlorithmTestBench_getNetworkHandlerDelay(void)
 *  Network Handler calls this functin if RoutingArgorithmTestBench is enabled
 *  It returns a varialble delay time for the Task, to sumulate different latecies of modems
@@ -96,7 +90,7 @@ uint16_t TestBenchModemSimulation_getNetworkHandlerDelay(void)
 	uint16_t delay;
 	if(config.EnableRoutingAlgorithmTestBench)
 	{
-		delay = latecyVariationTestPattern[delayPatternIndex];
+		delay = latecyVariationTestPattern[config.TestBenchModemSimulationScenario][delayPatternIndex];
 		delayPatternIndex ++;
 		delayPatternIndex = delayPatternIndex % LATENCY_VARIATION_TEST_PATTERN_LENGHT;
 
