@@ -30,6 +30,7 @@ typedef struct sPackageBuffer
     size_t count;     												// number of packages in the buffer
     size_t freeSpace;  												// number of free space for packages in the buffer
     uint16_t payloadNrLastInOrder; 									// The payloadNR of the last sent Package which were correct ordered or sent anyway
+    uint64_t tickCounter;										// Holds the time in ms since boot
 } tPackageBuffer;
 
 

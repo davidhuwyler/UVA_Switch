@@ -189,7 +189,7 @@ void transportHandler_TaskEntry(void* p)
 						if(!gotApack)
 						{
 							gotApack = true;
-							logger_logDeviceToDeviceLatency(package.devNum,numberOfSendTries*latency);
+							logger_logDeviceToDeviceLatency(package.devNum,(numberOfSendTries+1)*latency);
 							logger_logModemLatency(wirelessConnNr,latency);
 						}
 					}
@@ -262,7 +262,7 @@ void transportHandler_TaskEntry(void* p)
 				{
 					if(!packageBuffer_putWithVar(&sendBuffer[deviceNr],&package,(numberOfResendAttempts+1)))//Reinsert Package in the Buffer with new Timestamp
 					{
-						for (;;){}; //Should never happen...
+						//Should never happen because place was freed 3 lines above... TODO Handle case
 					}
 					if (pushToGeneratedPacksQueue(deviceNr, &package) != pdTRUE)		//Put data-package into Queues
 					{
@@ -275,11 +275,6 @@ void transportHandler_TaskEntry(void* p)
 				}
 				else												//Max Number of resends reached... Delete Package
 				{
-					static uint16_t nofpackagesUnableToSend = 0;
-					nofpackagesUnableToSend++;
-					char infoBuf[100];
-					XF1_xsprintf(infoBuf, "Number of Failed to send Packages %u Connection\r\n",nofpackagesUnableToSend);
-					pushMsgToShellQueue(infoBuf);
 					logger_incrementDeviceFailedToSendPack(package.devNum);
 					vPortFree(package.payload);
 					package.payload = NULL;

@@ -82,6 +82,7 @@ void networkHandler_TaskEntry(void* p)
 					{
 						oneToOnerouting(package.payload[0], wlConnToUse);
 					}
+
 					// Data-Packet gets routet
 					else if(!networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse, package.payloadNr,package.devNum))
 					{

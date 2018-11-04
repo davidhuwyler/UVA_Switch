@@ -540,11 +540,11 @@ static void setLinksToUse(bool* wirelessLinksToSet)
 bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseParam, uint16_t payloadNr, uint8_t deviceNr)
 {
 	bool packetSendable = false;
+	uint8_t sendTries = getNofSendTries(payloadNr);
+
 
 	if(config.RoutingMethode == ROUTING_METHODE_HARD_RULES)
 	{
-		uint8_t sendTries = getNofSendTries(payloadNr);
-
 		routingAlgorithmusHardRulesMethode(deviceNr,sendTries);
 		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 		{
@@ -721,7 +721,13 @@ uint16_t networkMetrics_getResendDelayWirelessConn(void)
 			if(Q[i] != 0  && longestRTT < RTTfiltered[i])
 				longestRTT = RTTfiltered[i];
 		}
-		return longestRTT * 2;
+
+		if(longestRTT<50)
+			return 100;
+		else if (longestRTT>10000)
+			return config.ResendDelayWirelessConn;
+		else
+			return longestRTT * 2;
 	}
 	else
 		return config.ResendDelayWirelessConn;
