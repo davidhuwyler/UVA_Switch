@@ -25,6 +25,7 @@ void packageBuffer_init(tPackageBuffer* buffer)
 	buffer->freeSpace = PACKAGE_BUFFER_SIZE;
 	buffer->payloadNrLastInOrder = 0;
 	buffer->tickCounter = 0;
+	buffer->lastOsTick = 0;
 	for(int i = 0 ; i < PACKAGE_BUFFER_SIZE ; i ++)
 	{
 		buffer->indexIsEmpty[i] = true;
@@ -549,17 +550,15 @@ static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy)
 
 static bool updateTickCounter(tPackageBuffer* buffer)
 {
-	static uint16_t lastOsTick = 0, newOsTick;
-	newOsTick = xTaskGetTickCount();
-
-	if(newOsTick >= lastOsTick)
-		buffer->tickCounter += (newOsTick-lastOsTick);
+	uint16_t newOsTick = xTaskGetTickCount();
+	if(newOsTick >= buffer->lastOsTick)
+		buffer->tickCounter += (newOsTick-buffer->lastOsTick);
 	else
 	{
-		buffer->tickCounter += (0xFFFF-lastOsTick);
+		buffer->tickCounter += (0xFFFF-buffer->lastOsTick);
 		buffer->tickCounter += newOsTick;
 	}
-	lastOsTick = newOsTick;
+	buffer->lastOsTick = newOsTick;
 }
 
 /*!
