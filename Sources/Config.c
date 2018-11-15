@@ -134,6 +134,10 @@ bool readConfig(void)
     numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "FALLBACK_WIRELESS_LINK",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
   	csvToInt(copiedCsv, config.fallbackWirelessLink);
 
+  	/* SECOND_FALLBACK_WIRELESS_LINK  */
+    numberOfCharsCopied = MINI_ini_gets("ConnectionConfiguration", "SECOND_FALLBACK_WIRELESS_LINK",  DEFAULT_CSV_STRING, copiedCsv, TEMP_CSV_SIZE, "serialSwitch_Config.ini");
+  	csvToInt(copiedCsv, config.secondFallbackWirelessLink);
+
   	/* -------- TransmissionConfiguration -------- */
   	/* ResendDelayWirelessConn */
   	config.ResendDelayWirelessConn = MINI_ini_getl("TransmissionConfiguration", "RESEND_DELAY_WIRELESS_CONN",  DEFAULT_INT, "serialSwitch_Config.ini");

@@ -77,8 +77,8 @@ void networkHandler_TaskEntry(void* p)
 					{
 						oneToOnerouting(deviceNr, wlConnToUse);
 					}
-					// If UAV Switch is modem Simulator, send Pack back to same Modem as it was received
-					else if(config.EnableRoutingAlgorithmTestBench == TESTBENCH_MODE_MODEM_SIMULATOR && package.packType == PACK_TYPE_REC_ACKNOWLEDGE)
+					// Acknowledges go back through the same modem as the payload came
+					else if(package.packType == PACK_TYPE_REC_ACKNOWLEDGE)
 					{
 						oneToOnerouting(package.payload[0], wlConnToUse);
 					}
@@ -99,7 +99,7 @@ void networkHandler_TaskEntry(void* p)
 								tWirelessPackage tmpPack;
 								copyPackage(&package, &tmpPack);
 
-								//IF Acknowledge, safe the Modem which the Ack is sent with
+								//IF Acknowledge, safe the Modem which the Ack is sent with (only needed for Logging...)
 								if(tmpPack.packType == PACK_TYPE_REC_ACKNOWLEDGE)
 									tmpPack.payload[0] = wlConn;
 
@@ -126,41 +126,7 @@ void networkHandler_TaskEntry(void* p)
 			}
 
 
-//			while( nofGeneratedPayloadPacksInQueue(deviceNr) > 0)
-//			{
-//				/* find wl connection to use for this package */
-//				bool wlConnToUse[] = {false, false, false, false};
-//				bool ackExpected = false;
-//				bool packSent = false;
-//				routing(deviceNr, wlConnToUse); /* find wlConn to use according to configuration file */
-//				for(int wlConn = 0; wlConn < NUMBER_OF_UARTS; wlConn++)
-//				{
-//					/* this wlconn is configured for the desired priority and there is space in the queue of next handler? */
-//					if( (wlConnToUse[wlConn] == true) && (freeSpaceInPackagesToDisassembleQueue(wlConn)) )
-//					{
-//						if(peekAtGeneratedPayloadPackInQueue(deviceNr, &package) == pdTRUE) /* peeking at package from upper handler successful? */
-//						{
-//							tWirelessPackage tmpPack;
-//							copyPackage(&package, &tmpPack);
-//							if(sendGeneratedWlPackage(&tmpPack, wlConn) == false) /* send the generated package down and store it internally if ACK is configured */
-//							{
-//								/* package couldnt be sent and payload was freed! don't access package anymore! */
-//								break; /* exit innner for loop */
-//							}
-//							packSent = true;
-//						}
-//					}
-//				}
-//				if(packSent)
-//				{
-//					popFromGeneratedPacksQueue(deviceNr, &package); /* this is done here because if two wlConn configured with same priority, package cant be removed twice */
-//					vPortFree(package.payload);
-//					package.payload = NULL;
-//				}
-//			}
-
-			/* extract data from received packages, send ACK and send raw data to corresponding UART interface */
-			//if(nofAssembledPacksInQueue(deviceNr) > 0)
+			//Route the packets from the Package Handler to the Transporthandler...
 			while(nofAssembledPacksInQueue(deviceNr) > 0)
 			{
 				processAssembledPackage(deviceNr);
@@ -177,10 +143,7 @@ void networkHandler_TaskEntry(void* p)
 void networkHandler_TaskInit(void)
 {
 	initNetworkHandlerQueues();
-
 }
-
-
 
 /*!
 * \fn void initNetworkHandlerQueues(void)
@@ -189,7 +152,6 @@ void networkHandler_TaskInit(void)
 static void initNetworkHandlerQueues(void)
 {
 }
-
 
 /*!
 * \fn static bool sendGeneratedWlPackage(tWirelessPackage* pPackage, tUartNr wlConn)
@@ -273,7 +235,6 @@ static bool copyPackage(tWirelessPackage* original, tWirelessPackage* copy)
 	}
 }
 
-
 /*!
 * \fn static bool processAssembledPackage(tUartNr wirelessConnNr)
 * \brief Pops received package from queue and checks if it is ACK or Data package.
@@ -291,9 +252,6 @@ static bool processAssembledPackage(tUartNr wlConn)
 	{
 		return false; /* peek not successful */
 	}
-
-	if(package.packType == PACK_TYPE_DATA_PACKAGE)
-		logger_incrementWirelessReceivedPack(wlConn);
 
 	/* no space for package in transport handler or no space for acknowledge in package handler */
 	if((package.packType == PACK_TYPE_DATA_PACKAGE) && (freeSpaceInReceivedPayloadPacksQueue(package.devNum) <= 0) ||
@@ -320,6 +278,12 @@ static bool processAssembledPackage(tUartNr wlConn)
 			package.devNum = NUMBER_OF_UARTS-1;
 		}
 
+		if(package.packType == PACK_TYPE_DATA_PACKAGE)
+		{
+			logger_incrementWirelessReceivedPack(wlConn);
+			package.receivedModemNr = wlConn;
+		}
+
 		/* push package to Trandport handler for processing payload */
 		pushToReceivedPayloadPacksQueue(package.devNum, &package);
 	}
@@ -332,5 +296,3 @@ static bool processAssembledPackage(tUartNr wlConn)
 	}
 	return true;
 }
-
-

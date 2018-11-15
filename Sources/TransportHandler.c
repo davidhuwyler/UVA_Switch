@@ -483,9 +483,8 @@ static bool generateAckPackage(tWirelessPackage* pReceivedDataPack, tWirelessPac
 		return false;
 	/* the payload is filled in the network handler if not */
 
-	/* Fill payload if UAV Switch is MOdemSImlulator -> Acknowledges go back to sender*/
-	if(config.EnableRoutingAlgorithmTestBench == TESTBENCH_MODE_MODEM_SIMULATOR)
-		pAckPack->payload[0] = pReceivedDataPack->devNum;
+	/* Fill payload with received Modem Nr of Data Pack -> Acknowledges go back to sender Modem*/
+	pAckPack->payload[0] = pReceivedDataPack->receivedModemNr;
 
 	return true;
 }

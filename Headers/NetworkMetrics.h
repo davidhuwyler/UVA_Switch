@@ -54,7 +54,11 @@
 //#define PRINT_WIRELESSLINK_TO_USE
 
 
-#define HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND 4
+#define HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_THREE 3
+#define HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL 4
+
+#define HARD_RULE_NOF_SAME_RULE_VARIANT_2 5
+
 /*!
 * \fn void networkMetrics_TaskEntry(void)
 * \brief Task computes the network metrics used for routing

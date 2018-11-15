@@ -47,6 +47,7 @@ typedef struct Configurations {
    /* ConnectionConfiguration */
    int PrioDevice[NUMBER_OF_UARTS];
    int fallbackWirelessLink[NUMBER_OF_UARTS];
+   int secondFallbackWirelessLink[NUMBER_OF_UARTS];
    /* TransmissionConfiguration */
    int ResendDelayWirelessConn; /* [delayPerWirelessConn] */
    int ResendCountWirelessConn; /* [delayPerWirelessConn] */

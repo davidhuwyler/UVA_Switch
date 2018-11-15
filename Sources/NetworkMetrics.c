@@ -48,6 +48,7 @@ static void calculateQ(uint16_t SBPP,uint16_t RTT,uint16_t PLR,uint16_t CPP, uin
 static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a);
 uint16_t getTimespan(uint16_t timestamp);
 static void routingAlgorithmusMetricsMethode();
+static void routingAlgorithmusHardRulesMethodeVariant1(uint8_t deviceNr,uint8_t sendTries);
 static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes);
 static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool onlyUseFreeLinks, uint16_t theshold,uint8_t* nofLinksAboveThreshold);
 static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool chooseTwoLinks);
@@ -328,12 +329,11 @@ static void routingAlgorithmusMetricsMethode()
 }
 
 /*!
-* \fn void routingAlgorithmusHardRulesMethode()
-* \brief implements the routing algorithm with hard rules
+* \fn void routingAlgorithmusHardRulesMethodeVariant1()
+* \brief implements the routing algorithm with hard rules Variant1
 */
-void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
+static void routingAlgorithmusHardRulesMethodeVariant1(uint8_t deviceNr,uint8_t sendTries)
 {
-
 	if(PanicButton_GetVal())
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
@@ -354,8 +354,8 @@ void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
 		}
 	}
 
-	// Rule #2 Exchange wireless Link with a non prioritised link
-	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND && config.PrioDevice[deviceNr])
+	// Rule #2 Send on 1to1 and the Fallback Link if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL && config.PrioDevice[deviceNr])
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 		{
@@ -365,8 +365,7 @@ void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
 				wirelessLinksToUse[i] = false;
 		}
 	}
-
-	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND)
+	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 		{
@@ -377,15 +376,15 @@ void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
 		}
 	}
 
-	// Rule #3
-	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND && config.PrioDevice[deviceNr])
+	// Rule #3 Send on all links if sendTries>HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL && config.PrioDevice[deviceNr])
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 		{
 			wirelessLinksToUse[i] = true;
 		}
 	}
-	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND)
+	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 		{
@@ -396,6 +395,110 @@ void routingAlgorithmusHardRulesMethode(uint8_t deviceNr,uint8_t sendTries)
 		}
 	}
 
+	setGPIOforUsedLinks();
+}
+
+/*!
+* \fn void routingAlgorithmusHardRulesMethodeVariant2()
+* \brief implements the routing algorithm with hard rules Variant2
+*/
+static void routingAlgorithmusHardRulesMethodeVariant2(uint8_t deviceNr,uint8_t sendTries)
+{
+	static uint8_t lastUsedRulePerDevice[NUMBER_OF_UARTS] = {1,1,1,1};
+	static uint8_t nofRuleExecutionsPerDevice[NUMBER_OF_UARTS] = {0,0,0,0};
+	uint8_t ruleToUse;
+
+	if(PanicButton_GetVal())
+	{
+		ruleToUse = 0xFF;
+	}
+
+	else if(!config.PrioDevice[deviceNr])
+	{
+		ruleToUse = 1; //1to1 routing for not prio device
+	}
+
+	//Use the Rule from the last execution
+	else if(sendTries == 1 && nofRuleExecutionsPerDevice[deviceNr]<HARD_RULE_NOF_SAME_RULE_VARIANT_2)
+	{
+		ruleToUse = lastUsedRulePerDevice[deviceNr];
+		nofRuleExecutionsPerDevice[deviceNr] ++;
+	}
+
+	else if(sendTries ==1)
+	{
+		ruleToUse = 1;
+		nofRuleExecutionsPerDevice[deviceNr] = 0;
+	}
+
+	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_THREE)
+	{
+		ruleToUse = 2;
+		nofRuleExecutionsPerDevice[deviceNr] = 0;
+	}
+
+	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
+	{
+		ruleToUse = 3;
+		nofRuleExecutionsPerDevice[deviceNr] = 0;
+	}
+
+	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
+	{
+		ruleToUse = 4;
+		nofRuleExecutionsPerDevice[deviceNr] = 0;
+	}
+
+	switch(ruleToUse)
+	{
+		case 1: // Rule #1 at first try use 1to1 routing
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(deviceNr == i)
+					wirelessLinksToUse[i] = true;
+				else
+					wirelessLinksToUse[i] = false;
+			}
+			lastUsedRulePerDevice[deviceNr] = 1;
+			break;
+
+		case 2: // Rule #2 Send on 1to1 and the Fallback Link if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_THREE
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(deviceNr == i || config.fallbackWirelessLink[deviceNr] == i)
+					wirelessLinksToUse[i] = true;
+				else
+					wirelessLinksToUse[i] = false;
+			}
+			lastUsedRulePerDevice[deviceNr] = 2;
+			break;
+
+		case 3: // Rule #3 Send on 1to1 and the Fallback and the second FalbackLinkLink if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(deviceNr == i || config.fallbackWirelessLink[deviceNr] == i || config.secondFallbackWirelessLink[deviceNr] == i)
+					wirelessLinksToUse[i] = true;
+				else
+					wirelessLinksToUse[i] = false;
+			}
+			lastUsedRulePerDevice[deviceNr] = 3;
+			break;
+
+		case 4: // Rule #4 Send on all links if sendTries>HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUse[i] = true;
+			}
+			lastUsedRulePerDevice[deviceNr] = 4;
+			break;
+
+		default: //Panic Buton
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUse[i] = true;
+			}
+			break;
+	}
 	setGPIOforUsedLinks();
 }
 
@@ -559,7 +662,11 @@ bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 
 	if(config.RoutingMethode == ROUTING_METHODE_HARD_RULES)
 	{
-		routingAlgorithmusHardRulesMethode(deviceNr,sendTries);
+		if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_1)
+			routingAlgorithmusHardRulesMethodeVariant1(deviceNr,sendTries);
+		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_2)
+			routingAlgorithmusHardRulesMethodeVariant2(deviceNr,sendTries);
+		//else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3)
 		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 		{
 			wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
