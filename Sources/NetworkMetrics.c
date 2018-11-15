@@ -214,7 +214,6 @@ static void calculateMetrics(void)
 				updatePacketLossRatioPacketNOK(wirelessLink);
 			}
 
-
 			if(currentPairNr[wirelessLink] < tempPack.payloadNr)
 				currentPairNr[wirelessLink] = tempPack.payloadNr;
 			vPortFree(tempPack.payload);
@@ -257,10 +256,9 @@ static void routingAlgorithmusMetricsMethode()
 		if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_1)
 			routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink,false);
 
-		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_2)
+		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_2 || config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3)
 		{
 			//Fast Adoption: Use Case2 if the Bandwith is falling use two links
-
 			routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink,false);
 			if(SBPPraw[bestWirelessLink] == 0)
 				routingDone = chooseLinkWithHigestQandEnoughBandwith(&bestWirelessLink,true);
@@ -721,7 +719,7 @@ static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool only
 /*!
 * \fn static void chooseLinkWithHigestQandEnoughBandwith(void)
 * \brief implements the loadbalancind according to Q and used Bandwith
-* If chooseTwoLinks == true, the also the second best link is enabled
+* If chooseTwoLinks == true, also the second best link is enabled
 */
 static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool chooseTwoLinks)
 {
@@ -729,10 +727,11 @@ static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool choose
 	uint8_t sortedQindexes[4];
 	bool channelFound = false;
 
-	getSortedQlist(sortedQlist,sortedQindexes);
-
 	//Search for the channel with higest q and lower Bandwith usage than BANDWITH_USAGE_PER_CHANNEL
 	FRTOS_xSemaphoreTake(metricsSemaphore,50);
+
+	getSortedQlist(sortedQlist,sortedQindexes);
+
 	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 	{
 		if(sortedQindexes[i] != NUMBER_OF_UARTS &&
@@ -812,16 +811,31 @@ bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 		FRTOS_xSemaphoreTake(metricsSemaphore,50);
 		if(!onlyPrioDeviceCanSend || config.PrioDevice[deviceNr])
 		{
+			uint8_t numberOfUsedChannels = 0;
 			for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 			{
 				if(wirelessLinksToUse[i])
 				{
+					numberOfUsedChannels++;
 					nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
 				}
 				wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
 
+
 				if(wirelessLinksToUse[i])
 					packetSendable = true;
+			}
+
+			if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3 && numberOfUsedChannels == 1 && sendTries>1)
+			{
+				uint16_t sortedQlist[4];
+				uint8_t sortedQindexes[4];
+				getSortedQlist(sortedQlist,sortedQindexes);
+				for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+				{
+					if(i == sortedQindexes[0] || i == sortedQindexes[1] )
+						wirelessLinksToUseParam[i] = true;
+				}
 			}
 		}
 		else
