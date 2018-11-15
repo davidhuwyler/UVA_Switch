@@ -17,6 +17,7 @@
 #include "WirelessLink1Used.h"
 #include "WirelessLink2Used.h"
 #include "WirelessLink3Used.h"
+#include "RNG.h"
 
 /* global variables, only used in this file */
 static xQueueHandle queueRequestNewTestPacketPair; /* Outgoing Requests for new TestPacketPairs for the TransportHandler */
@@ -49,6 +50,8 @@ static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a);
 uint16_t getTimespan(uint16_t timestamp);
 static void routingAlgorithmusMetricsMethode();
 static void routingAlgorithmusHardRulesMethodeVariant1(uint8_t deviceNr,uint8_t sendTries);
+static void routingAlgorithmusHardRulesMethodeVariant2(uint8_t deviceNr,uint8_t sendTries);
+static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t sendTries, uint16_t payloadNr);
 static void getSortedQlist(uint16_t* sortedQlist,uint8_t* sortedQindexes);
 static void getLinksAboveQThreshold(bool* wirelessLinkIsAboveThreshold,bool onlyUseFreeLinks, uint16_t theshold,uint8_t* nofLinksAboveThreshold);
 static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool chooseTwoLinks);
@@ -502,6 +505,134 @@ static void routingAlgorithmusHardRulesMethodeVariant2(uint8_t deviceNr,uint8_t 
 	setGPIOforUsedLinks();
 }
 
+/*!
+* \fn void routingAlgorithmusHardRulesMethodeVariant3()
+* \brief implements the routing algorithm with hard rules Variant2
+*/
+static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t sendTries, uint16_t payloadNr)
+{
+	static uint8_t defaultWirelessChannel[NUMBER_OF_UARTS] = {0,1,2,3};
+	static bool usedChannels[NUMBER_OF_UARTS][NUMBER_OF_UARTS]; // [device][usedWirelessChannels]
+	uint8_t ruleToUse;
+	static bool ongoningChannelEval[NUMBER_OF_UARTS] = {false,false,false,false};
+	static uint16_t ongoningChannelEvalPack[NUMBER_OF_UARTS];
+	static uint16_t lastEvalStartTimeStamp;
+
+	if(lastEvalStartTimeStamp+config.PayloadReorderingTimeout < xTaskGetTickCount())
+	{
+		ongoningChannelEval[deviceNr] = false;
+	}
+
+	if(PanicButton_GetVal())
+	{
+		ruleToUse = 0xFF;
+	}
+
+	else if(!config.PrioDevice[deviceNr])
+	{
+		ruleToUse = 4; //1to1 routing for not prio device
+	}
+
+	else if(ongoningChannelEval[deviceNr] && payloadNr!=ongoningChannelEvalPack[deviceNr])
+	{
+		ruleToUse = 3;
+	}
+
+	else if(sendTries ==1)
+	{
+		ruleToUse = 1;
+	}
+
+	else
+	{
+		ruleToUse = 2;
+		ongoningChannelEval[deviceNr]  = true;
+		if(ongoningChannelEvalPack[deviceNr] != payloadNr)
+		{
+			lastEvalStartTimeStamp = xTaskGetTickCount();
+			ongoningChannelEvalPack[deviceNr] = payloadNr;
+		}
+	}
+
+	switch(ruleToUse)
+	{
+		uint32_t randomNumber;
+		uint8_t linkToAdd;
+
+		case 1: // Rule #1 send with default channel
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(defaultWirelessChannel[deviceNr] == i)
+				{
+					wirelessLinksToUse[i] = true;
+					usedChannels[deviceNr][i] = true;
+				}
+				else
+				{
+					wirelessLinksToUse[i] = false;
+					usedChannels[deviceNr][i] = false;
+				}
+			}
+			break;
+
+		case 2: // Rule #2 Add one link to send
+			RNG_GetRandomNumber(RNG_DeviceData, &randomNumber);
+			linkToAdd= (uint8_t)randomNumber & 0x03;
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(usedChannels[deviceNr][linkToAdd] == false)
+				{
+					usedChannels[deviceNr][linkToAdd] = true;
+					defaultWirelessChannel[deviceNr] = linkToAdd;
+					break;
+				}
+				else
+				{
+					RNG_GetRandomNumber(RNG_DeviceData, &randomNumber);
+					linkToAdd= (uint8_t)randomNumber & 0x03;
+				}
+			}
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(usedChannels[deviceNr][i])
+					wirelessLinksToUse[i] = true;
+				else
+					wirelessLinksToUse[i] = false;
+			}
+			break;
+
+		case 3:
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(usedChannels[deviceNr][i])
+					wirelessLinksToUse[i] = true;
+				else
+					wirelessLinksToUse[i] = false;
+			}
+			break;
+
+
+
+		case 4: // 1to1 routing for not prio device
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				if(deviceNr == i)
+					wirelessLinksToUse[i] = true;
+				else
+					wirelessLinksToUse[i] = false;
+			}
+			break;
+
+		default: //Panic Buton
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUse[i] = true;
+			}
+			break;
+	}
+	setGPIOforUsedLinks();
+}
+
 void setGPIOforUsedLinks(void)
 {
 	//Set UsedWirelessLinks GPIOs
@@ -666,7 +797,8 @@ bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 			routingAlgorithmusHardRulesMethodeVariant1(deviceNr,sendTries);
 		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_2)
 			routingAlgorithmusHardRulesMethodeVariant2(deviceNr,sendTries);
-		//else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3)
+		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3)
+			routingAlgorithmusHardRulesMethodeVariant3(deviceNr,sendTries, payloadNr);
 		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 		{
 			wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
