@@ -180,6 +180,16 @@ static bool sendPackageToWirelessQueue(tUartNr wlConn, tWirelessPackage* pPackag
 
 	pPackage->sessionNr = sessionNr;
 
+	//Embed the panicMode bool inside the devNum
+	if(pPackage->packType == PACK_TYPE_DATA_PACKAGE || pPackage->packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST ||pPackage->packType == PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND )
+	{
+		 if(pPackage->panicMode)
+		 {
+			 pPackage->devNum = pPackage->devNum | 0xF0;
+		 }
+	}
+
+
 	/* calculate CRC payload */
 	uint32_t crc16;
 	CRC1_ResetCRC(CRC1_DeviceData);
@@ -424,7 +434,6 @@ static void assembleWirelessPackages(uint8_t wlConn)
 					/* CRC is valid - also check if the header parameters are within the valid range */
 					if ((currentWirelessPackage[wlConn].packType > PACK_TYPE_NETWORK_TEST_PACKAGE_SECOND) ||
 						(currentWirelessPackage[wlConn].packType == 0) ||
-						(currentWirelessPackage[wlConn].devNum >= NUMBER_OF_UARTS) ||
 						(currentWirelessPackage[wlConn].payloadSize > PACKAGE_MAX_PAYLOAD_SIZE))
 					{
 						/* at least one of the parameters is out of range..reset state machine */
@@ -531,6 +540,18 @@ static void assembleWirelessPackages(uint8_t wlConn)
 								/* update throughput printout */
 								numberOfPacksReceived[wlConn]++;
 								numberOfPayloadBytesExtracted[wlConn] += currentWirelessPackage[wlConn].payloadSize;
+
+								//Set the panic mode Variable which is embedded inside the devNum
+								if((currentWirelessPackage[wlConn].devNum & 0xF0) == 0xF0)
+								{
+									currentWirelessPackage[wlConn].panicMode = true;
+									currentWirelessPackage[wlConn].devNum = currentWirelessPackage[wlConn].devNum & 0x0F;
+								}
+								else
+								{
+									currentWirelessPackage[wlConn].panicMode = false;
+								}
+
 								/* generate ACK if it is configured and send it to package queue */
 								/* New done in Transport-Handler*/
 //								if(config.SendAckPerWirelessConn[wlConn])

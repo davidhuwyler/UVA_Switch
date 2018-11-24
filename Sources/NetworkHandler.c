@@ -82,8 +82,15 @@ void networkHandler_TaskEntry(void* p)
 					{
 						oneToOnerouting(package.payload[0], wlConnToUse);
 					}
-
-					// Data-Packet gets routet
+					// Panic Mode! Use all links
+					else if(package.panicMode)
+					{
+						wlConnToUse[0] = true;
+						wlConnToUse[1] = true;
+						wlConnToUse[2] = true;
+						wlConnToUse[3] = true;
+					}
+					// Data-Packet gets routed with a routing algorithm
 					else if(!networkMetrics_getLinksToUse(sizeof(tWirelessPackage)+package.payloadSize, wlConnToUse, package.payloadNr,package.devNum))
 					{
 						//No link available at the moment... Dump Packet

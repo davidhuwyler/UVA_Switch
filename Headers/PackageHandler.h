@@ -94,6 +94,7 @@ typedef struct sWirelessPackage
 	uint16_t crc16payload;
 	/* internal information, needed for (re)sending package */
 	uint8_t receivedModemNr;
+	bool panicMode; //This boolean is transmitted inside the devNum Variable!
 //	uint8_t currentPrioConnection;
 //	int8_t sendAttemptsLeftPerWirelessConnection[NUMBER_OF_UARTS];
 //	uint16_t timestampFirstSendAttempt;

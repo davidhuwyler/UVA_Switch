@@ -19,6 +19,7 @@
 #include "Platform.h"
 #include "PackageBuffer.h"
 #include "Logger.h"
+#include "PanicButton.h"
 
 /* --------------- prototypes ------------------- */
 static bool processReceivedPayload(tWirelessPackage* pPackage);
@@ -46,10 +47,9 @@ static char* queueNameReceivedPayload[] = {"queueReceivedPacksFromDev0", "queueR
 static uint16_t payloadNumTracker[NUMBER_OF_UARTS];
 static uint16_t sentAckNumTracker[NUMBER_OF_UARTS];
 static uint16_t testPackNumTracker[NUMBER_OF_UARTS];
-
-
 static tPackageBuffer sendBuffer[NUMBER_OF_UARTS];								/*Packets are stored which wait for the acknowledge */
 static tPackageBuffer receiveBuffer[NUMBER_OF_UARTS];							/*Packets are stored which wait for reordering */
+static bool remotePanicMode = false;
 
 //static uint16_t sysTimeLastPushedOutPayload[NUMBER_OF_UARTS];  Which package was last sent out [payloadNR!!!!]
 //static uint16_t minSysTimeOfStoredPackagesForReordering[NUMBER_OF_UARTS];
@@ -87,13 +87,16 @@ void transportHandler_TaskEntry(void* p)
 			/*------------------------ Generate TestPackets if requested ---------------------------*/
 			if ((popFromRequestNewTestPacketPairQueue(&request) == pdTRUE && config.UseProbingPacksWlConn[deviceNr] == true) || workaroundToStartUAVswitch)
 			{
-				workaroundToStartUAVswitch = false;
+				workaroundToStartUAVswitch = false;  //Todo finde the rootcause why workaround needed...
 				sendOutTestPackagePair(deviceNr, &package);
 			}
 
 			/*------------------ Generate Packages From Raw Data (Device Bytes)---------------------*/
 			if (generateDataPackage(deviceNr, &package))
 			{
+
+				package.panicMode = PanicButton_GetVal();
+
 				logger_incrementDeviceSentPack(package.devNum);
 				if (packageBuffer_put(&sendBuffer[deviceNr],&package) != true)//Put data-package into sendBuffer until Acknowledge gets received
 				{
@@ -140,6 +143,7 @@ void transportHandler_TaskEntry(void* p)
 			/*--------------> Incoming Package == DataPackage <-----------------*/
 				if(package.packType == PACK_TYPE_DATA_PACKAGE)
 				{
+					remotePanicMode = package.panicMode;
 					if(packageBuffer_putIfNotOld(&receiveBuffer[deviceNr],&package) != true)			//Put data-package into receiveBuffer
 					{
 						if(packageBuffer_getPackage(&receiveBuffer[deviceNr],&package,package.payloadNr,&latency))
