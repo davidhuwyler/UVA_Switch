@@ -83,7 +83,7 @@ void networkHandler_TaskEntry(void* p)
 						oneToOnerouting(package.payload[0], wlConnToUse);
 					}
 					// Panic Mode! Use all links
-					else if(package.panicMode)
+					else if(package.panicMode && config.PrioDevice[package.devNum])
 					{
 						wlConnToUse[0] = true;
 						wlConnToUse[1] = true;
