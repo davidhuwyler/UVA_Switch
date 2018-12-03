@@ -198,9 +198,10 @@ static void calculateMetrics(void)
 		if(foundPair[wirelessLink] == false) //found no valid packet pair...
 		{
 			if(RTTraw[wirelessLink]<TIMEOUT_TEST_PACKET_RETURN)
+			{
 				RTTraw[wirelessLink] = getTimespan(timeStampLastValidMetric[wirelessLink]);
+			}
 			exponentialFilter(&RTTfiltered[wirelessLink],&RTTraw[wirelessLink],RRT_FILTER_PARAM);
-
 			SBPPraw[wirelessLink] = 0;
 			exponentialFilter(&SBPPfiltered[wirelessLink],&SBPPraw[wirelessLink],SBPP_FILTER_PARAM);
 		}
@@ -216,7 +217,9 @@ static void calculateMetrics(void)
 			}
 
 			if(currentPairNr[wirelessLink] < tempPack.payloadNr)
+			{
 				currentPairNr[wirelessLink] = tempPack.payloadNr;
+			}
 			vPortFree(tempPack.payload);
 			tempPack.payload = NULL;
 		}
@@ -252,7 +255,7 @@ static void routingAlgorithmusMetricsMethode(void)
 	//Algorithm Case 1: There are links with high Q  -> Use the Link with higest Q
 	if(nofLinksAboveThreshold)
 	{
-		uint8_t bestWirelessLink;//TODO evtl init to 0
+		uint8_t bestWirelessLink;
 
 		if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_1)
 		{
@@ -298,11 +301,13 @@ static void routingAlgorithmusMetricsMethode(void)
 	//This case also gets used, if the panic Button is pressed
 	if(!routingDone || PanicButton_GetVal())
 	{
-		xSemaphoreTake(metricsSemaphore,50);
-		onlyPrioDeviceCanSend = true;
-		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		if(xSemaphoreTake(metricsSemaphore,pdMS_TO_TICKS(50)))
 		{
-			wirelessLinksToUse[i] = true;
+			onlyPrioDeviceCanSend = true;
+			for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUse[i] = true;
+			}
 		}
 		xSemaphoreGive(metricsSemaphore);
 	}
@@ -357,21 +362,15 @@ static void routingAlgorithmusHardRulesMethodeVariant1(uint8_t deviceNr,uint8_t 
 	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL && config.PrioDevice[deviceNr])
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
-		{//TODO wie oben
-			if(deviceNr == i || config.fallbackWirelessLink[deviceNr] == i)
-				wirelessLinksToUse[i] = true;
-			else
-				wirelessLinksToUse[i] = false;
+		{
+			wirelessLinksToUse[i] = (deviceNr == i || config.fallbackWirelessLink[deviceNr] == i);
 		}
 	}
 	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
-		{//TODO wie oben
-			if(deviceNr == i)
-				wirelessLinksToUse[i] = true;
-			else
-				wirelessLinksToUse[i] = false;
+		{
+			wirelessLinksToUse[i] = (deviceNr == i);
 		}
 	}
 
@@ -386,14 +385,10 @@ static void routingAlgorithmusHardRulesMethodeVariant1(uint8_t deviceNr,uint8_t 
 	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
 	{
 		for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
-		{//TODO wie oben
-			if(deviceNr == i)
-				wirelessLinksToUse[i] = true;
-			else
-				wirelessLinksToUse[i] = false;
+		{
+			wirelessLinksToUse[i] = (deviceNr == i);
 		}
 	}
-
 	setGPIOforUsedLinks();
 }
 
@@ -403,18 +398,18 @@ static void routingAlgorithmusHardRulesMethodeVariant1(uint8_t deviceNr,uint8_t 
 */
 static void routingAlgorithmusHardRulesMethodeVariant2(uint8_t deviceNr,uint8_t sendTries)
 {
-	static uint8_t lastUsedRulePerDevice[NUMBER_OF_UARTS] = {1,1,1,1};
+	static enumRoutingAlgoRules_t lastUsedRulePerDevice[NUMBER_OF_UARTS] = {ROUTING_ALGORITHM_RULE_NR_1,ROUTING_ALGORITHM_RULE_NR_1,ROUTING_ALGORITHM_RULE_NR_1,ROUTING_ALGORITHM_RULE_NR_1};
 	static uint8_t nofRuleExecutionsPerDevice[NUMBER_OF_UARTS] = {0,0,0,0};
-	uint8_t ruleToUse; //TODO ENUM für rules
+	enumRoutingAlgoRules_t ruleToUse;
 
 	if(PanicButton_GetVal())
 	{
-		ruleToUse = 0xFF;
+		ruleToUse = ROUTING_ALGORITHM_RULE_PANIC_MODE;
 	}
 
 	else if(!config.PrioDevice[deviceNr])
 	{
-		ruleToUse = 1; //1to1 routing for not prio device
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_1; //1to1 routing for not prio device
 	}
 
 	//Use the Rule from the last execution
@@ -426,69 +421,60 @@ static void routingAlgorithmusHardRulesMethodeVariant2(uint8_t deviceNr,uint8_t 
 
 	else if(sendTries == 1)
 	{
-		ruleToUse = 1;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_1;
 		nofRuleExecutionsPerDevice[deviceNr] = 0;
 	}
 
 	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_THREE)
 	{
-		ruleToUse = 2;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_2;
 		nofRuleExecutionsPerDevice[deviceNr] = 0;
 	}
 
 	else if(sendTries < HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
 	{
-		ruleToUse = 3;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_3;
 		nofRuleExecutionsPerDevice[deviceNr] = 0;
 	}
 
 	else if(sendTries >= HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL)
 	{
-		ruleToUse = 4;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_4;
 		nofRuleExecutionsPerDevice[deviceNr] = 0;
 	}
 
 	switch(ruleToUse)
 	{
-		case 1: // Rule #1 at first try use 1to1 routing
-			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
-			{//TODO wie oben
-				if(deviceNr == i)
-					wirelessLinksToUse[i] = true;
-				else
-					wirelessLinksToUse[i] = false;
-			}
-			lastUsedRulePerDevice[deviceNr] = 1;
-			break;
-
-		case 2: // Rule #2 Send on 1to1 and the Fallback Link if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_THREE
-			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
-			{//TODO wie oben
-				if(deviceNr == i || config.fallbackWirelessLink[deviceNr] == i)
-					wirelessLinksToUse[i] = true;
-				else
-					wirelessLinksToUse[i] = false;
-			}
-			lastUsedRulePerDevice[deviceNr] = 2;
-			break;
-
-		case 3: // Rule #3 Send on 1to1 and the Fallback and the second FalbackLinkLink if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+		case ROUTING_ALGORITHM_RULE_NR_1: // Rule #1 at first try use 1to1 routing
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 			{
-				if(deviceNr == i || config.fallbackWirelessLink[deviceNr] == i || config.secondFallbackWirelessLink[deviceNr] == i)
-					wirelessLinksToUse[i] = true;
-				else
-					wirelessLinksToUse[i] = false;
+				wirelessLinksToUse[i] = (deviceNr == i);
 			}
-			lastUsedRulePerDevice[deviceNr] = 3;
+			lastUsedRulePerDevice[deviceNr] = ROUTING_ALGORITHM_RULE_NR_1;
 			break;
 
-		case 4: // Rule #4 Send on all links if sendTries>HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+		case ROUTING_ALGORITHM_RULE_NR_2: // Rule #2 Send on 1to1 and the Fallback Link if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_THREE
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUse[i] = (deviceNr == i || config.fallbackWirelessLink[deviceNr] == i);
+			}
+			lastUsedRulePerDevice[deviceNr] = ROUTING_ALGORITHM_RULE_NR_2;
+			break;
+
+		case ROUTING_ALGORITHM_RULE_NR_3: // Rule #3 Send on 1to1 and the Fallback and the second FalbackLinkLink if  1<sendTries<HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
+			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
+			{
+				wirelessLinksToUse[i] = (deviceNr == i || config.fallbackWirelessLink[deviceNr] == i || config.secondFallbackWirelessLink[deviceNr] == i);
+			}
+			lastUsedRulePerDevice[deviceNr] = ROUTING_ALGORITHM_RULE_NR_3;
+			break;
+
+		case ROUTING_ALGORITHM_RULE_NR_4: // Rule #4 Send on all links if sendTries>HARD_RULE_NOF_RESEND_BEFORE_REDUNDAND_ALL
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 			{
 				wirelessLinksToUse[i] = true;
 			}
-			lastUsedRulePerDevice[deviceNr] = 4;
+			lastUsedRulePerDevice[deviceNr] = ROUTING_ALGORITHM_RULE_NR_4;
 			break;
 
 		default: //Panic Buton
@@ -509,7 +495,7 @@ static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t 
 {
 	static uint8_t defaultWirelessChannel[NUMBER_OF_UARTS] = {0,1,2,3};
 	static bool usedChannels[NUMBER_OF_UARTS][NUMBER_OF_UARTS]; // [device][usedWirelessChannels]
-	uint8_t ruleToUse;
+	enumRoutingAlgoRules_t ruleToUse;
 	static bool ongoningChannelEval[NUMBER_OF_UARTS] = {false,false,false,false};
 	static uint16_t ongoningChannelEvalPack[NUMBER_OF_UARTS];
 	static uint16_t lastEvalStartTimeStamp;
@@ -521,27 +507,27 @@ static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t 
 
 	if(PanicButton_GetVal())
 	{
-		ruleToUse = 0xFF;
+		ruleToUse = ROUTING_ALGORITHM_RULE_PANIC_MODE;
 	}
 
 	else if(!config.PrioDevice[deviceNr])
 	{
-		ruleToUse = 4; //1to1 routing for not prio device
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_4; //1to1 routing for not prio device
 	}
 
 	else if(ongoningChannelEval[deviceNr] && payloadNr!=ongoningChannelEvalPack[deviceNr])
 	{
-		ruleToUse = 3;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_3;
 	}
 
 	else if(sendTries ==1)
 	{
-		ruleToUse = 1;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_1;
 	}
 
 	else
 	{
-		ruleToUse = 2;
+		ruleToUse = ROUTING_ALGORITHM_RULE_NR_2;
 		ongoningChannelEval[deviceNr]  = true;
 		if(ongoningChannelEvalPack[deviceNr] != payloadNr)
 		{
@@ -555,23 +541,15 @@ static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t 
 		uint32_t randomNumber;
 		uint8_t linkToAdd;
 
-		case 1: // Rule #1 send with default channel
+		case ROUTING_ALGORITHM_RULE_NR_1: // Rule #1 send with default channel
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 			{
-				if(defaultWirelessChannel[deviceNr] == i)
-				{
-					wirelessLinksToUse[i] = true;
-					usedChannels[deviceNr][i] = true;
-				}
-				else
-				{
-					wirelessLinksToUse[i] = false;
-					usedChannels[deviceNr][i] = false;
-				}
+				wirelessLinksToUse[i] = (defaultWirelessChannel[deviceNr] == i);
+				usedChannels[deviceNr][i] = (defaultWirelessChannel[deviceNr] == i);
 			}
 			break;
 
-		case 2: // Rule #2 Add one link to send
+		case ROUTING_ALGORITHM_RULE_NR_2: // Rule #2 Add one link to send
 			RNG_GetRandomNumber(RNG_DeviceData, &randomNumber);
 			linkToAdd= (uint8_t)randomNumber & 0x03;
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
@@ -590,32 +568,21 @@ static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t 
 			}
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 			{
-				if(usedChannels[deviceNr][i])
-					wirelessLinksToUse[i] = true;
-				else
-					wirelessLinksToUse[i] = false;
+				wirelessLinksToUse[i] = usedChannels[deviceNr][i];
 			}
 			break;
 
-		case 3:
+		case ROUTING_ALGORITHM_RULE_NR_3:
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 			{
-				if(usedChannels[deviceNr][i])
-					wirelessLinksToUse[i] = true;
-				else
-					wirelessLinksToUse[i] = false;
+				wirelessLinksToUse[i] = usedChannels[deviceNr][i];
 			}
 			break;
 
-
-
-		case 4: // 1to1 routing for not prio device
+		case ROUTING_ALGORITHM_RULE_NR_4: // 1to1 routing for not prio device
 			for(int i = 0 ; i<NUMBER_OF_UARTS ; i++)
 			{
-				if(deviceNr == i)
-					wirelessLinksToUse[i] = true;
-				else
-					wirelessLinksToUse[i] = false;
+				wirelessLinksToUse[i] = (deviceNr == i);
 			}
 			break;
 
@@ -631,33 +598,12 @@ static void routingAlgorithmusHardRulesMethodeVariant3(uint8_t deviceNr,uint8_t 
 
 void setGPIOforUsedLinks(void)
 {
-	//TODO {} if
-	//TODO Ausschaltbar im normalen mode
-	//TODO _PutVal()
-	//Set UsedWirelessLinks GPIOs
-	if(wirelessLinksToUse[0])
-		WirelessLink0Used_SetVal();
-
-	else
-		WirelessLink0Used_ClrVal();
-
-	if(wirelessLinksToUse[1])
-		WirelessLink1Used_SetVal();
-
-	else
-		WirelessLink1Used_ClrVal();
-
-	if(wirelessLinksToUse[2])
-		WirelessLink2Used_SetVal();
-
-	else
-		WirelessLink2Used_ClrVal();
-
-	if(wirelessLinksToUse[3])
-		WirelessLink3Used_SetVal();
-
-	else
-		WirelessLink3Used_ClrVal();
+#ifdef OUTPUT_USED_WIRELESSLINK_GPIOS
+	WirelessLink0Used_PutVal(wirelessLinksToUse[0]);
+	WirelessLink1Used_PutVal(wirelessLinksToUse[1]);
+	WirelessLink2Used_PutVal(wirelessLinksToUse[2]);
+	WirelessLink3Used_PutVal(wirelessLinksToUse[3]);
+#endif
 }
 
 
@@ -729,36 +675,36 @@ static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool choose
 	bool channelFound = false;
 
 	//Search for the channel with higest q and lower Bandwith usage than BANDWITH_USAGE_PER_CHANNEL
-	FRTOS_xSemaphoreTake(metricsSemaphore,pdMS_TO_TICKS(50));
-
-	getSortedQlist(sortedQlist,sortedQindexes);
-
-	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	if(xSemaphoreTake(metricsSemaphore,pdMS_TO_TICKS(50)))
 	{
-		if(sortedQindexes[i] != NUMBER_OF_UARTS &&
-		  ((nofTransmittedBytesSinceLastTaskCall[sortedQindexes[i]]*1000/config.NetworkMetricsTaskInterval) < (BANDWITH_USAGE_PER_CHANNEL*SBPPfiltered[sortedQindexes[i]])))
+		getSortedQlist(sortedQlist,sortedQindexes);
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 		{
-			for(int j = 0 ; j < NUMBER_OF_UARTS ; j++)
+			if(sortedQindexes[i] != NUMBER_OF_UARTS &&
+			  ((nofTransmittedBytesSinceLastTaskCall[sortedQindexes[i]]*1000/config.NetworkMetricsTaskInterval) < (BANDWITH_USAGE_PER_CHANNEL*SBPPfiltered[sortedQindexes[i]])))
 			{
-				if(j == sortedQindexes[i])
+				for(int j = 0 ; j < NUMBER_OF_UARTS ; j++)
 				{
-					wirelessLinksToUse[j] = true;
-					channelFound=true;
-					*bestLink = j;
+					if(j == sortedQindexes[i])
+					{
+						wirelessLinksToUse[j] = true;
+						channelFound=true;
+						*bestLink = j;
+					}
+					else if(chooseTwoLinks  && j == sortedQindexes[i+1])
+					{
+						wirelessLinksToUse[j] = true;
+					}
+					else
+					{
+						wirelessLinksToUse[j] = false;
+					}
 				}
-				else if(chooseTwoLinks  && j == sortedQindexes[i+1])
-				{
-					wirelessLinksToUse[j] = true;
-				}
-				else
-				{
-					wirelessLinksToUse[j] = false;
-				}
+				break;
 			}
-			break;
 		}
 	}
-	FRTOS_xSemaphoreGive(metricsSemaphore);
+	xSemaphoreGive(metricsSemaphore);
 	return channelFound;
 }
 
@@ -768,16 +714,14 @@ static bool chooseLinkWithHigestQandEnoughBandwith(uint8_t* bestLink,bool choose
 */
 static void setLinksToUse(bool* wirelessLinksToSet)
 {
-	//TODO Check sema return value
-	FRTOS_xSemaphoreTake(metricsSemaphore,50);
-	for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+	if(xSemaphoreTake(metricsSemaphore,pdMS_TO_TICKS(50)))
 	{
-		if(wirelessLinksToSet[i])
-			wirelessLinksToUse[i] = true;
-		else
-			wirelessLinksToUse[i] = false;
+		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
+		{
+			wirelessLinksToUse[i] = wirelessLinksToSet[i];
+		}
 	}
-	FRTOS_xSemaphoreGive(metricsSemaphore);
+	xSemaphoreGive(metricsSemaphore);
 }
 
 /*!
@@ -791,68 +735,79 @@ bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 	bool packetSendable = false;
 	uint8_t sendTries = getNofSendTries(payloadNr);
 
-
 	if(config.RoutingMethode == ROUTING_METHODE_HARD_RULES)
-	{//TODO {} if
+	{
 		if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_1)
+		{
 			routingAlgorithmusHardRulesMethodeVariant1(deviceNr,sendTries);
+		}
 		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_2)
+		{
 			routingAlgorithmusHardRulesMethodeVariant2(deviceNr,sendTries);
+		}
 		else if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3)
+		{
 			routingAlgorithmusHardRulesMethodeVariant3(deviceNr,sendTries, payloadNr);
+		}
 		for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 		{
 			wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
 			if(wirelessLinksToUse[i])
+			{
 				packetSendable = true;
+			}
 		}
 	}
 
 	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
 	{
-		FRTOS_xSemaphoreTake(metricsSemaphore,50);
-		if(!onlyPrioDeviceCanSend || config.PrioDevice[deviceNr])
+		if(xSemaphoreTake(metricsSemaphore,pdMS_TO_TICKS(50)))
 		{
-			uint8_t numberOfUsedChannels = 0;
-			for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+			if(!onlyPrioDeviceCanSend || config.PrioDevice[deviceNr])
 			{
-				if(wirelessLinksToUse[i])
-				{
-					numberOfUsedChannels++;
-					nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
-				}
-				wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
-
-
-				if(wirelessLinksToUse[i])
-					packetSendable = true;
-			}
-
-			if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3 && numberOfUsedChannels == 1 && sendTries>1)
-			{
-				uint16_t sortedQlist[4];
-				uint8_t sortedQindexes[4];
-				getSortedQlist(sortedQlist,sortedQindexes);
+				uint8_t numberOfUsedChannels = 0;
 				for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
 				{
-					if(i == sortedQindexes[0] || i == sortedQindexes[1] )
-						wirelessLinksToUseParam[i] = true;
+					if(wirelessLinksToUse[i])
+					{
+						numberOfUsedChannels++;
+						nofTransmittedBytesSinceLastTaskCall[i] += bytesToSend;
+					}
+					wirelessLinksToUseParam[i] = wirelessLinksToUse[i];
+
+					if(wirelessLinksToUse[i])
+					{
+						packetSendable = true;
+					}
+
+				}
+
+				if(config.RoutingMethodeVariant == ROUTING_METHODE_VARIANT_3 && numberOfUsedChannels == 1 && sendTries>1)
+				{
+					uint16_t sortedQlist[NUMBER_OF_UARTS];
+					uint8_t sortedQindexes[NUMBER_OF_UARTS];
+					getSortedQlist(sortedQlist,sortedQindexes);
+					for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+					{
+						if(i == sortedQindexes[0] || i == sortedQindexes[1])
+						{
+							wirelessLinksToUseParam[i] = true;
+						}
+					}
+				}
+			}
+			else
+			{
+				for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
+				{
+					wirelessLinksToUseParam[i] = false;
 				}
 			}
 		}
-		else
-		{
-			for(int i=0 ; i<NUMBER_OF_UARTS ; i++)
-			{
-				wirelessLinksToUseParam[i] = false;
-			}
-		}
 
-		FRTOS_xSemaphoreGive(metricsSemaphore);
+		xSemaphoreGive(metricsSemaphore);
 	}
-
 	return packetSendable;
-
 }
 
 
@@ -862,8 +817,10 @@ bool networkMetrics_getLinksToUse(uint16_t bytesToSend,bool* wirelessLinksToUseP
 *  y_t is the current filtered value
 *  x_t is the current raw value
 *  a is the filter parameter (smaller = faster filter ) (0<a<1)
+*
+*  This exponentialFilter is proposed for metrics in the following paper on page 8
+*  http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.304.7863&rep=rep1&type=pdf
 */
-//TODO paperlink
 static void exponentialFilter(uint16_t* y_t, uint16_t* x_t, float a)
 {
 	if(a<0)
@@ -886,10 +843,13 @@ static bool calculateMetric_RoundTripTime(uint16_t* roundTripTime, tWirelessPack
 	copyTestPackagePayload(receivedPack,&payloadReceivedPack);
 
 	if(payloadSentPack.sendTimestamp <= payloadReceivedPack.sendTimestamp)
+	{
 		*roundTripTime = payloadReceivedPack.sendTimestamp-payloadSentPack.sendTimestamp;
+	}
 	else
+	{
 		*roundTripTime = (0xFFFF-payloadSentPack.sendTimestamp)+payloadReceivedPack.sendTimestamp;
-
+	}
 	return true;
 }
 
@@ -908,14 +868,22 @@ static bool calculateMetric_SenderBasedPacketPair(uint16_t* senderBasedPacketPai
 	if(payloadFirstReceivedPackage.sendTimestamp == payloadSecondReceivedPackage.sendTimestamp)
 	{
 		if(*senderBasedPacketPair !=0)
+		{
 			return false;
+		}
 		else
+		{
 			timeDelayBetwennReceivedPackages = 5;
+		}
 	}
 	else if(payloadFirstReceivedPackage.sendTimestamp <= payloadSecondReceivedPackage.sendTimestamp)
+	{
 		timeDelayBetwennReceivedPackages = payloadSecondReceivedPackage.sendTimestamp - payloadFirstReceivedPackage.sendTimestamp;
+	}
 	else
+	{
 		timeDelayBetwennReceivedPackages = (0xFFFF-payloadSecondReceivedPackage.sendTimestamp)+payloadFirstReceivedPackage.sendTimestamp;
+	}
 
 	*senderBasedPacketPair = ((sizeof(tWirelessPackage)+sizeof(tTestPackagePayload))*1000)/timeDelayBetwennReceivedPackages;
 
@@ -932,10 +900,10 @@ static bool calculateMetric_PacketLossRatio(uint16_t* packetLossRatio,uint8_t wi
 	for(int i = 0 ; i < NOF_PACKS_FOR_PACKET_LOSS_RATIO ; i++)
 	{
 		if(packetLossIndicatorForPLR[wirelessNr][i])
+		{
 			nofLostPacks ++;
+		}
 	}
-
-
 	*packetLossRatio = (100/NOF_PACKS_FOR_PACKET_LOSS_RATIO) * nofLostPacks;
 	return true;
 }
@@ -989,19 +957,28 @@ uint16_t networkMetrics_getResendDelayWirelessConn(void)
 		for(int i = 0 ; i < NUMBER_OF_UARTS ; i++)
 		{
 			if(Q[i] != 0  && longestRTT < RTTfiltered[i])
+			{
 				longestRTT = RTTfiltered[i];
+			}
 		}
 
-		if(longestRTT<50)
-			return 100;
-		else if (longestRTT>10000)
+		if(longestRTT<MIN_RTT_RESEND_DELAY)
+		{
+			return (MIN_RTT_RESEND_DELAY*SECURITY_FACTOR_RTT_TO_RESEND_DELAY);
+		}
+		else if (longestRTT>MAX_RTT_RESEND_DELAY)
+		{
 			return config.ResendDelayWirelessConn;
+		}
 		else
-			return longestRTT * 2;
+		{
+			return longestRTT * SECURITY_FACTOR_RTT_TO_RESEND_DELAY;
+		}
 	}
 	else
+	{
 		return config.ResendDelayWirelessConn;
-
+	}
 }
 
 /*!
@@ -1163,9 +1140,13 @@ static bool findPacketPairInBuffer(tWirelessPackage* sentPack1 , tWirelessPackag
 	}
 
 	if(state == FOUND_ALL)
+	{
 		return true;
+	}
 	else
+	{
 		return false;
+	}
 }
 
 
@@ -1205,17 +1186,21 @@ static void copyTestPackagePayload(tWirelessPackage* testPackage, tTestPackagePa
 	{
 		bytePtrPayload[i] = testPackage->payload[i];
 	}
-	//TODO MEMCPY anstelle copyTestPackagePayload()
 }
 
 uint16_t getTimespan(uint16_t timestamp)
-{//TODO fällt weg mit 32bit timestamp
+{
 	uint16_t osTick = xTaskGetTickCount();
 
 	if(osTick >= timestamp)
+	{
 		return(osTick-timestamp);
+	}
+
 	else
+	{
 		return (0xFFFF-osTick) + timestamp;
+	}
 }
 
 
@@ -1226,9 +1211,10 @@ uint16_t getTimespan(uint16_t timestamp)
 */
 uint8_t getNofSendTries(uint8_t payloadNr)
 {
-	//TODO comments
 	static uint16_t payloadNrBufferIndex = 0;
 	uint8_t nofEntriesInBuffer = 0;
+
+	//payloadNrBuffer is implemented as ringbuffer:
 	payloadNrBuffer[payloadNrBufferIndex] = payloadNr;
 	payloadNrBufferIndex++;
 	payloadNrBufferIndex %= PACKAGE_BUFFER_SIZE;
@@ -1236,7 +1222,9 @@ uint8_t getNofSendTries(uint8_t payloadNr)
 	for(int i = 0; i < PACKAGE_BUFFER_SIZE ; i++)
 	{
 		if(payloadNrBuffer[i] == payloadNr)
+		{
 			nofEntriesInBuffer ++;
+		}
 	}
 
 	return nofEntriesInBuffer;
@@ -1273,9 +1261,13 @@ static void initnetworkMetricsQueues(void)
 BaseType_t popFromRequestNewTestPacketPairQueue(bool* request)
 {
 	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+	{
 		return xQueueReceive(queueRequestNewTestPacketPair, request, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	}
 	else
+	{
 		return pdFAIL;
+	}
 }
 
 /*!
@@ -1287,7 +1279,11 @@ BaseType_t popFromRequestNewTestPacketPairQueue(bool* request)
 BaseType_t pushToTestPacketResultsQueue(tWirelessPackage* results)
 {
 	if(config.RoutingMethode == ROUTING_METHODE_METRICS)
+	{
 		return xQueueSendToBack(queueTestPacketResults, results, ( TickType_t ) pdMS_TO_TICKS(NETWORK_METRICS_QUEUE_DELAY) );
+	}
 	else
+	{
 		return pdFAIL;
+	}
 }

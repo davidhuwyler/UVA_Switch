@@ -190,7 +190,7 @@ void transportHandler_TaskEntry(void* p)
 						vPortFree(package.payload);
 						package.payload = NULL;
 
-						if(!gotApack) //TODO ...
+						if(!gotApack)
 						{
 							gotApack = true;
 							logger_logDeviceToDeviceLatency(package.devNum,(numberOfSendTries+1)*latency);
@@ -240,7 +240,6 @@ void transportHandler_TaskEntry(void* p)
 						{
 							bytePtrPayload[i] = package.payload[i];
 						}
-						//TODO memcpy
 						payload.sendTimestamp =  xTaskGetTickCount();
 						//Copy payload back into testpackage
 						bytePtrPayload = (uint8_t*) &payload;
