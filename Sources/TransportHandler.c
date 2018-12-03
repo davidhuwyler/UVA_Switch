@@ -190,7 +190,7 @@ void transportHandler_TaskEntry(void* p)
 						vPortFree(package.payload);
 						package.payload = NULL;
 
-						if(!gotApack)
+						if(!gotApack) //TODO ...
 						{
 							gotApack = true;
 							logger_logDeviceToDeviceLatency(package.devNum,(numberOfSendTries+1)*latency);
@@ -214,7 +214,9 @@ void transportHandler_TaskEntry(void* p)
 					/* Return the Testpackage if this device is not the Sender */
 					bool packIsFirstOfPair = false;
 					if(package.packType == PACK_TYPE_NETWORK_TEST_PACKAGE_FIRST)
+					{
 						packIsFirstOfPair = true;
+					}
 					if (!payload.returned && generateTestDataPackage(deviceNr, &package,true,packIsFirstOfPair))
 					{
 						if (pushToGeneratedPacksQueue(deviceNr,	&package) != pdTRUE)
@@ -238,6 +240,7 @@ void transportHandler_TaskEntry(void* p)
 						{
 							bytePtrPayload[i] = package.payload[i];
 						}
+						//TODO memcpy
 						payload.sendTimestamp =  xTaskGetTickCount();
 						//Copy payload back into testpackage
 						bytePtrPayload = (uint8_t*) &payload;

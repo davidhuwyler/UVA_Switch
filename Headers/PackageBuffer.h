@@ -19,7 +19,7 @@
 #ifdef UAV_SWITCH_IS_TESTBENCH_MASTER
 #define PACKAGE_BUFFER_SIZE					1
 #else
-#define PACKAGE_BUFFER_SIZE					130
+#define PACKAGE_BUFFER_SIZE					130						//Number of wireless packages in the buffer
 #endif
 typedef struct sPackageBuffer
 {
